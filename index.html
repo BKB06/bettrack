@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BetTracker - Nova Aposta</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <div class="app-wrapper">
+    <div id="global-topbar"></div>
+    <div class="app-body" id="app-body">
+      <aside class="desktop-sidebar" id="global-sidebar"></aside>
+      
+      <main class="app-main desktop-main mobile-main" id="app-main">
+      <div style="margin-bottom: 16px;">
+        <p class="eyebrow">NOVA</p>
+        <h1 class="page-title">Registrar Aposta</h1>
+      </div>
+
+      <div class="card card--dashed" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+          <div style="color: var(--green); font-weight: 700; font-size: 15px; display:flex; align-items:center; gap:6px;">📸 Importar Cupom</div>
+          <div style="color: var(--muted); font-size: 12px; margin-top: 4px;">Envie um print e a IA preenche automaticamente</div>
+        </div>
+        <input type="file" id="ocr-upload" accept="image/*" style="display: none;">
+        <button type="button" id="btn-import-ocr" class="btn btn--ghost" style="color: var(--green); border-color: var(--green);">Selecionar</button>
+      </div>
+
+      <form id="new-bet-form" class="card">
+        <div class="field">
+          <label class="field-label">Casa de Apostas</label>
+          <select class="select" id="bet-bookmaker" required></select>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Categoria</label>
+          <select class="select" id="bet-category" required>
+            <option value="NBA">NBA</option>
+            <option value="Futebol">Futebol</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Evento / Descrição</label>
+          <input type="text" class="input" id="bet-event" placeholder="Ex: Lakers vs Warriors — Moneyline Lakers" required>
+        </div>
+
+        <div class="field-grid-2">
+          <div class="field">
+            <label class="field-label">Odd</label>
+            <input type="number" step="0.01" class="input" id="bet-odd" placeholder="Ex: 2.10" required>
+          </div>
+          <div class="field">
+            <label class="field-label">Valor (R$)</label>
+            <input type="number" step="0.01" class="input" id="bet-stake" placeholder="Ex: 50.00" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Data</label>
+          <input type="date" class="input" id="bet-date" required>
+        </div>
+
+        <div id="feedback-container"></div>
+
+        <button type="submit" class="btn btn--primary btn--full" id="btn-submit" style="margin-top: 12px;">
+          + Registrar Aposta
+        </button>
+      </form>
+      </main>
+
+      <aside class="desktop-right" id="global-right-panel"></aside>
+    </div>
+    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const db = loadDb();
+      const bkSelect = document.getElementById('bet-bookmaker');
+      const oddInput = document.getElementById('bet-odd');
+      const stakeInput = document.getElementById('bet-stake');
+      const feedbackContainer = document.getElementById('feedback-container');
+      const btnSubmit = document.getElementById('btn-submit');
+      const form = document.getElementById('new-bet-form');
+
+      // Set today's date
+      document.getElementById('bet-date').valueAsDate = new Date();
+
+      // Populate bookmakers
+      if (db.bookmakers.length === 0) {
+        bkSelect.innerHTML = '<option value="">Nenhuma casa cadastrada</option>';
+      } else {
+        db.bookmakers.forEach(bk => {
+          const opt = document.createElement('option');
+          opt.value = bk.id;
+          opt.textContent = `${bk.name} (Saldo: R$ ${bk.sportsBalance.toFixed(2)})`;
+          bkSelect.appendChild(opt);
+        });
+      }
+
+      function updateFeedback() {
+        const odd = parseFloat(oddInput.value) || 0;
+        const stake = parseFloat(stakeInput.value) || 0;
+        const bkId = bkSelect.value;
+        const bk = db.bookmakers.find(b => b.id === bkId);
+
+        if (!bk || stake <= 0) {
+          feedbackContainer.innerHTML = '';
+          btnSubmit.disabled = false;
+          return;
+        }
+
+        const balance = bk.sportsBalance;
+        
+        if (stake > balance) {
+          feedbackContainer.innerHTML = `
+            <div class="feedback-box feedback-box--error">
+              <div class="feedback-row">
+                <span class="feedback-row__label">Saldo Insuficiente</span>
+                <span class="feedback-row__value">Em ${bk.name}</span>
+              </div>
+              <div class="feedback-row">
+                <span class="feedback-row__label">Saldo disponível:</span>
+                <span class="feedback-row__value" style="color:var(--text)">${formatMoney(balance)}</span>
+              </div>
+            </div>
+          `;
+          btnSubmit.disabled = true;
+        } else if (odd > 1) {
+          const retorno = stake * odd;
+          const lucro = retorno - stake;
+          feedbackContainer.innerHTML = `
+            <div class="feedback-box feedback-box--ok">
+              <div class="feedback-row">
+                <span class="feedback-row__label">Retorno Potencial</span>
+                <span class="feedback-row__value" style="color:var(--text)">${formatMoney(retorno)}</span>
+              </div>
+              <div class="feedback-row">
+                <span class="feedback-row__label">Lucro Limpo</span>
+                <span class="feedback-row__value">${formatMoney(lucro)}</span>
+              </div>
+            </div>
+          `;
+          btnSubmit.disabled = false;
+        } else {
+          feedbackContainer.innerHTML = '';
+          btnSubmit.disabled = false;
+        }
+      }
+
+      bkSelect.addEventListener('change', updateFeedback);
+      oddInput.addEventListener('input', updateFeedback);
+      stakeInput.addEventListener('input', updateFeedback);
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const bkId = bkSelect.value;
+        const stake = parseFloat(stakeInput.value);
+        const bkIndex = db.bookmakers.findIndex(b => b.id === bkId);
+        
+        if (bkIndex === -1 || stake > db.bookmakers[bkIndex].sportsBalance) return;
+
+        // Deduct stake
+        db.bookmakers[bkIndex].sportsBalance -= stake;
+
+        // Add bet
+        db.bets.push({
+          id: generateId(),
+          bookmakerId: bkId,
+          category: document.getElementById('bet-category').value,
+          event: document.getElementById('bet-event').value,
+          odd: parseFloat(oddInput.value),
+          stake: stake,
+          date: document.getElementById('bet-date').value,
+          status: 'pending',
+          profit: 0
+        });
+
+        saveDb(db);
+        alert('Aposta registrada com sucesso!');
+        form.reset();
+        document.getElementById('bet-date').valueAsDate = new Date();
+        
+        // Refresh dropdown text
+        bkSelect.innerHTML = '';
+        db.bookmakers.forEach(bk => {
+          const opt = document.createElement('option');
+          opt.value = bk.id;
+          opt.textContent = `${bk.name} (Saldo: R$ ${bk.sportsBalance.toFixed(2)})`;
+          bkSelect.appendChild(opt);
+        });
+        updateFeedback();
+      });
+
+      // --- OCR LOGIC ---
+      const btnOcr = document.getElementById('btn-import-ocr');
+      const inputOcr = document.getElementById('ocr-upload');
+
+      if (btnOcr && inputOcr) {
+        btnOcr.addEventListener('click', () => {
+          inputOcr.click();
+        });
+
+        inputOcr.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const originalText = btnOcr.textContent;
+          btnOcr.textContent = 'Lendo...';
+          btnOcr.disabled = true;
+
+          try {
+            const result = await Tesseract.recognize(file, 'por', {
+              logger: m => console.log(m)
+            });
+            const text = result.data.text;
+            console.log("OCR Text:", text);
+
+            // Parsing Odd
+            // Suporta: "Odd 1.50", "Odds totais 1.61", "@ 1.61"
+            const oddMatch = text.match(/(?:Odd|Odds totais|@)[\s\S]*?(\d+[,.]\d{2})/i) || text.match(/(\d+[,.]\d{2})/);
+            if (oddMatch) {
+              oddInput.value = parseFloat(oddMatch[1].replace(',', '.'));
+            }
+
+            // Parsing Valor (Stake)
+            // Suporta: "R$ 50.00", "Valor 50.00", "Aposta 0,50 R$"
+            const stakeMatch = text.match(/(?:R\$\s*|Valor|Aposta)[\s\S]*?(\d+[,.]\d{2})/i) || text.match(/(\d+[,.]\d{2})\s*R\$/i);
+            if (stakeMatch) {
+              stakeInput.value = parseFloat(stakeMatch[1].replace(',', '.'));
+            }
+
+            // Parsing Casa (Bookmaker)
+            const textLower = text.toLowerCase();
+            const bks = Array.from(bkSelect.options);
+            for (let opt of bks) {
+              if (!opt.value) continue;
+              const nameLower = opt.textContent.split(' (')[0].toLowerCase();
+              if (nameLower && textLower.includes(nameLower)) {
+                bkSelect.value = opt.value;
+                break;
+              }
+            }
+
+            // Parsing Evento (Fallback heurístico)
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3);
+            
+            const isInvalidEventLine = (l) => {
+              const lower = l.toLowerCase();
+              return lower.includes('playoff') || 
+                     lower.includes('único') || lower.includes('unico') ||
+                     lower.includes('múltipla') || lower.includes('multipla') ||
+                     lower.includes('aposta') || lower.includes('odds') || lower.includes('cashout');
+            };
+
+            // Procura por " x ", " vs ", " — " ou " - "
+            const eventMatch = lines.find(l => l.match(/\s+(x|vs|—|-|–)\s+/i) && !isInvalidEventLine(l));
+            
+            if (eventMatch) {
+              document.getElementById('bet-event').value = eventMatch;
+            } else if (lines.length > 0) {
+              // Fallback: primeira linha que não seja só número ou palavras genéricas
+              const validLines = lines.filter(l => !l.match(/^[\d.,R$\s]+$/) && !isInvalidEventLine(l) && !l.toLowerCase().match(/^(categoria|superbet|betano|bet365)$/i));
+              if (validLines.length > 0) {
+                document.getElementById('bet-event').value = validLines[0];
+              }
+            }
+
+            updateFeedback();
+
+          } catch (error) {
+            console.error('OCR Error:', error);
+            alert('Erro ao ler o cupom. Tente uma imagem mais nítida.');
+          } finally {
+            btnOcr.textContent = originalText;
+            btnOcr.disabled = false;
+            inputOcr.value = '';
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>

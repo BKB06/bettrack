@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BetTracker - Histórico</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <div id="global-topbar"></div>
+    <div class="app-body" id="app-body">
+      <aside class="desktop-sidebar" id="global-sidebar"></aside>
+      
+      <main class="app-main desktop-main mobile-main" id="app-main">
+      <div style="margin-bottom: 16px;">
+        <p class="eyebrow">VISÃO GERAL</p>
+        <h1 class="page-title">Histórico</h1>
+      </div>
+
+      <!-- KPIs -->
+      <div class="mini-card-grid" style="grid-template-columns: repeat(2, 1fr);">
+        <div class="mini-card mini-card--green">
+          <div class="label">MAIOR ODD ACERTADA</div>
+          <div class="value green" id="kpi-max-odd-win">-</div>
+        </div>
+        <div class="mini-card" style="border-color: var(--red-border);">
+          <div class="label">MENOR ODD PERDIDA</div>
+          <div class="value red" id="kpi-min-odd-loss">-</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">MAIOR LUCRO (APOSTA)</div>
+          <div class="value green" id="kpi-max-profit">-</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">MAIOR PERDA (APOSTA)</div>
+          <div class="value red" id="kpi-max-loss">-</div>
+        </div>
+      </div>
+
+      <!-- Calendário (Mobile Only) -->
+      <section class="card mobile-only" style="margin-bottom: 24px;">
+        <div class="cal-nav">
+          <button class="btn btn--icon" id="cal-prev" style="border-radius:var(--radius-lg); width:32px; height:32px;">‹</button>
+          <div class="cal-nav__center">
+            <div class="cal-nav__month" id="cal-month-name" style="font-size:16px;">Mai 2026</div>
+            <div class="cal-nav__info" id="cal-month-info">Apostado: <span class="c-gold">R$ 0,00</span> · PnL: <span class="c-green">+R$ 0,00</span></div>
+          </div>
+          <button class="btn btn--icon" id="cal-next" style="border-radius:var(--radius-lg); width:32px; height:32px;">›</button>
+        </div>
+        <div class="cal-headers">
+          <div class="cal-header-cell">D</div>
+          <div class="cal-header-cell">S</div>
+          <div class="cal-header-cell">T</div>
+          <div class="cal-header-cell">Q</div>
+          <div class="cal-header-cell">Q</div>
+          <div class="cal-header-cell">S</div>
+          <div class="cal-header-cell">S</div>
+        </div>
+        <div class="cal-grid" id="cal-grid">
+          <!-- JS fills this -->
+        </div>
+      </section>
+
+      <!-- Lista Completa -->
+      <section>
+        <div class="filter-bar">
+          <button class="filter-btn active" data-filter="all">Todas</button>
+          <button class="filter-btn" data-filter="pending">Abertas</button>
+          <button class="filter-btn" data-filter="won">Acertadas</button>
+          <button class="filter-btn" data-filter="lost">Erradas</button>
+        </div>
+        <div id="all-bets-container"></div>
+      </section>
+
+      </main>
+
+      <aside class="desktop-right" id="global-right-panel"></aside>
+    </div>
+    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      let db = loadDb();
+      let currentDate = new Date();
+      let activeFilter = 'all';
+
+      function renderKPIs() {
+        const wonBets = db.bets.filter(b => b.status === 'won');
+        const lostBets = db.bets.filter(b => b.status === 'lost');
+
+        const maxOddWin = wonBets.length ? Math.max(...wonBets.map(b => b.odd)) : 0;
+        const minOddLoss = lostBets.length ? Math.min(...lostBets.map(b => b.odd)) : 0;
+        const maxProfit = wonBets.length ? Math.max(...wonBets.map(b => b.profit)) : 0;
+        const maxLoss = lostBets.length ? Math.max(...lostBets.map(b => b.stake)) : 0;
+
+        document.getElementById('kpi-max-odd-win').textContent = maxOddWin ? maxOddWin.toFixed(2) : '-';
+        document.getElementById('kpi-min-odd-loss').textContent = minOddLoss ? minOddLoss.toFixed(2) : '-';
+        document.getElementById('kpi-max-profit').textContent = maxProfit ? formatMoney(maxProfit) : '-';
+        document.getElementById('kpi-max-loss').textContent = maxLoss ? formatMoney(maxLoss) : '-';
+      }
+
+      function resolveBet(betId, result) {
+        const betIndex = db.bets.findIndex(b => b.id === betId);
+        if (betIndex === -1) return;
+
+        const bet = db.bets[betIndex];
+        const bkIndex = db.bookmakers.findIndex(b => b.id === bet.bookmakerId);
+        
+        if (bkIndex !== -1) {
+          if (result === 'won') {
+            bet.profit = (bet.stake * bet.odd) - bet.stake;
+            bet.status = 'won';
+            // Return stake + profit to bookmaker
+            db.bookmakers[bkIndex].sportsBalance += (bet.stake + bet.profit);
+          } else if (result === 'lost') {
+            bet.profit = -bet.stake;
+            bet.status = 'lost';
+            // Stake was already deducted when placed, nothing to add back
+          } else if (result === 'void') {
+            bet.profit = 0;
+            bet.status = 'void';
+            // Return stake only
+            db.bookmakers[bkIndex].sportsBalance += bet.stake;
+          }
+        }
+        
+        saveDb(db);
+        refreshAll();
+      }
+
+      window.resolveBet = resolveBet; // Expose to HTML inline onclick
+
+      // Remove bet
+      window.removeBet = (id) => {
+        if(confirm('Excluir aposta?')) {
+          db.bets = db.bets.filter(b => b.id !== id);
+          saveDb(db);
+          refreshAll();
+        }
+      };
+
+      function renderAllBets() {
+        const container = document.getElementById('all-bets-container');
+        let filtered = db.bets;
+        
+        if (activeFilter !== 'all') {
+          filtered = filtered.filter(b => b.status === activeFilter);
+        }
+
+        // Sort by date desc
+        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (filtered.length === 0) {
+          container.innerHTML = '<p class="empty-state">Nenhuma aposta encontrada</p>';
+          return;
+        }
+
+        container.innerHTML = filtered.map(b => {
+          const bk = db.bookmakers.find(bk => bk.id === b.bookmakerId);
+          const bkName = bk ? bk.name : 'Desconhecida';
+          let statusBadge, pnlClass, pnlText, actionsHtml = '';
+
+          if (b.status === 'pending') {
+            const catClass = b.category === 'Outros' || b.category === 'Cassino' ? 'tag--purple' : 'tag--blue';
+            return `
+              <div class="bet-card">
+                <div class="bet-card__title" style="margin-bottom: 8px;">${b.event}</div>
+                <div class="bet-card__tags" style="margin-bottom: 16px;">
+                  <span class="tag tag--gold">⌛ ABERTA</span>
+                  <span class="tag ${catClass}">${b.category}</span>
+                  <span class="tag" style="background: ${bk ? bk.color : '#fff'}22; color: ${bk ? bk.color : '#fff'};">${bkName}</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; margin-bottom: 16px;">
+                  <div>Odd <strong style="color:var(--text); font-family:var(--mono);">${b.odd.toFixed(2)}</strong></div>
+                  <div>Stake <strong style="color:var(--text); font-family:var(--mono);">${formatMoney(b.stake)}</strong></div>
+                  <div style="font-family:var(--mono); font-size: 12px;">${b.date}</div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                  <button class="btn btn--win" style="flex: 1;" onclick="resolveBet('${b.id}', 'won')">✓ Acertou</button>
+                  <button class="btn btn--lose" style="flex: 1;" onclick="resolveBet('${b.id}', 'lost')">✗ Errou</button>
+                  <button class="btn btn--icon" style="width: 42px; height: 42px; border-radius: var(--radius-md);" onclick="resolveBet('${b.id}', 'void')">∅</button>
+                </div>
+                
+                <button class="bet-card__delete" onclick="removeBet('${b.id}')">× excluir</button>
+              </div>
+            `;
+          } else if (b.status === 'won') {
+            statusBadge = '<span class="badge badge--won">Ganhou</span>';
+            pnlClass = 'bet-card__pnl--pos';
+            pnlText = '+' + formatMoney(b.profit);
+          } else if (b.status === 'lost') {
+            statusBadge = '<span class="badge badge--lost">Perdeu</span>';
+            pnlClass = 'bet-card__pnl--neg';
+            pnlText = '-' + formatMoney(Math.abs(b.profit));
+          } else {
+            statusBadge = '<span class="badge badge--void">Void</span>';
+            pnlClass = '';
+            pnlText = 'R$ 0,00';
+          }
+
+            return `
+              <div class="bet-card">
+                <div class="bet-card__header">
+                  <div class="bet-card__info">
+                    <div class="bet-card__title">${b.event}</div>
+                    <div class="bet-card__tags">
+                      ${statusBadge}
+                      <span class="tag tag--muted">${bkName}</span>
+                      <span class="tag tag--muted">Odd ${b.odd.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div class="bet-card__pnl ${pnlClass}">
+                    ${pnlText}
+                  </div>
+                </div>
+                <div class="bet-card__footer">
+                  <span>Data: <strong>${b.date.split('-').reverse().join('/')}</strong></span>
+                  <span>Stake: <strong>${formatMoney(b.stake)}</strong></span>
+                </div>
+              </div>
+            `;
+        }).join('');
+      }
+
+      // Filter events
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          activeFilter = e.target.dataset.filter;
+          renderAllBets();
+        });
+      });
+
+      // Calendar logic
+      function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+        document.getElementById('cal-month-name').textContent = `${monthNames[month]} ${year}`;
+
+        const grid = document.getElementById('cal-grid');
+        grid.innerHTML = '';
+
+        const firstDayIndex = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        let monthStaked = 0;
+        let monthPnL = 0;
+
+        // Group bets by date
+        const dailyProfit = {};
+        db.bets.filter(b => b.status !== 'pending').forEach(b => {
+          const bDate = new Date(b.date);
+          const bYear = bDate.getFullYear();
+          const bMonth = bDate.getMonth();
+          
+          if (bYear === year && bMonth === month) {
+            monthStaked += b.stake;
+            monthPnL += b.profit;
+          }
+
+          const key = b.date; // already YYYY-MM-DD
+          if (!dailyProfit[key]) dailyProfit[key] = 0;
+          dailyProfit[key] += b.profit;
+        });
+
+        // Update month info
+        const pnlStr = monthPnL >= 0 ? `+${formatMoney(monthPnL)}` : `-${formatMoney(Math.abs(monthPnL))}`;
+        const pnlColor = monthPnL >= 0 ? 'c-green' : 'c-red';
+        document.getElementById('cal-month-info').innerHTML = `Apostado: <span class="c-gold">${formatMoney(monthStaked)}</span> · PnL: <span class="${pnlColor}">${pnlStr}</span>`;
+
+        // Previous month padding
+        for (let x = 0; x < firstDayIndex; x++) {
+          grid.innerHTML += `<div class="cal-cell" style="border-color:transparent"></div>`;
+        }
+
+        // Days
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        for (let i = 1; i <= daysInMonth; i++) {
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+          let cellClass = 'cal-cell';
+          let pnlHtml = '';
+
+          if (dateStr === todayStr) cellClass += ' cal-cell--today';
+
+          if (dailyProfit[dateStr] !== undefined) {
+            const pnl = dailyProfit[dateStr];
+            if (pnl > 0) {
+              cellClass += ' cal-cell--win';
+              pnlHtml = `<div class="cal-cell__pnl">+${pnl.toFixed(0)}</div>`;
+            } else if (pnl < 0) {
+              cellClass += ' cal-cell--lose';
+              pnlHtml = `<div class="cal-cell__pnl">${pnl.toFixed(0)}</div>`;
+            } else {
+               pnlHtml = `<div class="cal-cell__pnl" style="color:var(--muted)">0</div>`;
+            }
+          }
+
+          grid.innerHTML += `<div class="${cellClass}">${i}${pnlHtml}</div>`;
+        }
+      }
+
+      document.getElementById('cal-prev').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+      });
+
+      document.getElementById('cal-next').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+      });
+
+      function refreshAll() {
+        renderKPIs();
+        renderAllBets();
+        renderCalendar();
+        updateGlobalUI();
+      }
+
+      refreshAll();
+    });
+  </script>
+</body>
+</html>

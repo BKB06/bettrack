@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BetTracker - Fundos</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <div id="global-topbar"></div>
+    <div class="app-body" id="app-body">
+      <aside class="desktop-sidebar" id="global-sidebar"></aside>
+      
+      <main class="app-main desktop-main mobile-main" id="app-main">
+      <div style="margin-bottom: 24px;">
+        <p class="eyebrow">MOVIMENTAÇÕES</p>
+        <h1 class="page-title" id="page-title">Transferência</h1>
+      </div>
+
+      <!-- Mercado Pago Card -->
+      <div class="bank-card" id="mp-card" onclick="editMpBalance()" style="cursor: pointer;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div class="bank-card__label" style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:14px;">🏦</span> MERCADO PAGO
+          </div>
+          <div class="bank-card__hint" style="color: var(--blue);">toque para editar</div>
+        </div>
+        <div class="bank-card__value" id="mp-balance-display">R$ 0,00</div>
+      </div>
+
+      <div class="card" style="margin-bottom: 32px;">
+        <!-- Tabs -->
+        <div class="transfer-tabs">
+          <button class="transfer-tab" data-type="deposit">
+            <span style="display:block; margin-bottom:4px; font-size:16px;">↓</span>
+            Depósito
+          </button>
+          <button class="transfer-tab active" data-type="withdraw">
+            <span style="display:block; margin-bottom:4px; font-size:16px;">↑</span>
+            Saque
+          </button>
+          <button class="transfer-tab" data-type="transfer">
+            <span style="display:block; margin-bottom:4px; font-size:16px;">⇄</span>
+            Entre Casas
+          </button>
+        </div>
+
+        <!-- Form -->
+        <form id="cashflow-form">
+          <p id="form-direction" style="font-size:12px; color:var(--muted); margin-bottom:12px;">Casa de Apostas → Mercado Pago</p>
+          
+          <div class="field" id="field-book-from">
+            <label class="field-label" id="label-book-from">Casa de Origem</label>
+            <select class="select" id="input-book-from" required></select>
+          </div>
+
+          <div class="field" id="field-book-to" style="display: none;">
+            <label class="field-label">Casa de Destino</label>
+            <select class="select" id="input-book-to"></select>
+          </div>
+
+          <div class="field-grid-2">
+            <div class="field">
+              <label class="field-label">Valor (R$)</label>
+              <input type="number" step="0.01" class="input" id="input-amount" placeholder="0.00" required>
+            </div>
+            <div class="field">
+              <label class="field-label">Data</label>
+              <input type="date" class="input" id="input-date" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Observação (Opcional)</label>
+            <input type="text" class="input" id="input-note" placeholder="Ex: lucro semanal">
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--full" id="btn-submit" style="margin-top: 8px;">
+            Registrar Saque
+          </button>
+        </form>
+      </div>
+
+      <!-- History -->
+      <div>
+        <h2 class="sidebar-section-label" style="padding:0">Histórico</h2>
+        <div id="cashflow-list"></div>
+      </div>
+
+      </main>
+
+      <aside class="desktop-right" id="global-right-panel"></aside>
+    </div>
+    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      let db = loadDb();
+      let currentType = 'withdraw';
+      
+      const mpBalance = document.getElementById('mp-balance');
+      const tabs = document.querySelectorAll('.transfer-tab');
+      const form = document.getElementById('cashflow-form');
+      const directionLabel = document.getElementById('form-direction');
+      const fieldBookTo = document.getElementById('field-book-to');
+      const inputBookFrom = document.getElementById('input-book-from');
+      const inputBookTo = document.getElementById('input-book-to');
+      const labelBookFrom = document.getElementById('label-book-from');
+      const btnSubmit = document.getElementById('btn-submit');
+      const pageTitle = document.getElementById('page-title');
+
+      // Initialize defaults
+      document.getElementById('input-date').valueAsDate = new Date();
+      updateMpDisplay();
+
+      // Mercado Pago editing
+      window.editMpBalance = () => {
+        const novoSaldo = prompt("Digite o novo saldo do Mercado Pago:", db.mercadoPago.toFixed(2));
+        if (novoSaldo !== null) {
+          const parsed = parseFloat(novoSaldo.replace(',', '.'));
+          if (!isNaN(parsed)) {
+            db.mercadoPago = parsed;
+            saveDb(db);
+            updateMpDisplay();
+            updateGlobalUI();
+          }
+        }
+      };
+
+      function updateMpDisplay() {
+        document.getElementById('mp-balance-display').textContent = formatMoney(db.mercadoPago);
+      }
+
+      function populateSelects() {
+        const options = db.bookmakers.map(bk => 
+          `<option value="${bk.id}">${bk.name} (R$ ${bk.sportsBalance.toFixed(2)})</option>`
+        ).join('');
+        
+        const prevFrom = inputBookFrom.value;
+        const prevTo = inputBookTo.value;
+
+        inputBookFrom.innerHTML = options;
+        inputBookTo.innerHTML = options;
+
+        if (prevFrom) inputBookFrom.value = prevFrom;
+        if (prevTo) inputBookTo.value = prevTo;
+      }
+
+      function updateMode() {
+        tabs.forEach(t => t.classList.remove('active'));
+        document.querySelector(`.transfer-tab[data-type="${currentType}"]`).classList.add('active');
+
+        if (currentType === 'deposit') {
+          directionLabel.textContent = 'Mercado Pago → Casa de Apostas';
+          labelBookFrom.textContent = 'Casa de Destino';
+          fieldBookTo.style.display = 'none';
+          inputBookTo.removeAttribute('required');
+          btnSubmit.textContent = 'Registrar Depósito';
+        } else if (currentType === 'withdraw') {
+          directionLabel.textContent = 'Casa de Apostas → Mercado Pago';
+          labelBookFrom.textContent = 'Casa de Origem';
+          fieldBookTo.style.display = 'none';
+          inputBookTo.removeAttribute('required');
+          btnSubmit.textContent = 'Registrar Saque';
+        } else {
+          directionLabel.textContent = 'Entre Casas de Aposta';
+          labelBookFrom.textContent = 'Casa de Origem';
+          fieldBookTo.style.display = 'block';
+          inputBookTo.setAttribute('required', 'true');
+          btnSubmit.textContent = 'Registrar Transferência';
+        }
+      }
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          currentType = e.currentTarget.dataset.type;
+          updateMode();
+        });
+      });
+
+      function renderHistory() {
+        const container = document.getElementById('cashflow-list');
+        if (!db.cashflow || db.cashflow.length === 0) {
+          container.innerHTML = '<p class="empty-state">Nenhuma movimentação</p>';
+          return;
+        }
+
+        const sorted = [...db.cashflow].sort((a,b) => new Date(b.date) - new Date(a.date));
+        
+        container.innerHTML = sorted.map(c => {
+          let label, typeClass, sign, fromTo;
+          const bkFrom = db.bookmakers.find(b => b.id === c.fromBook)?.name || 'Desconhecida';
+          
+          if (c.type === 'deposit') {
+            label = 'Depósito';
+            typeClass = 'transfer-item--deposit';
+            sign = '+';
+            fromTo = `Para ${bkFrom}`;
+          } else if (c.type === 'withdraw') {
+            label = 'Saque';
+            typeClass = 'transfer-item--withdrawal';
+            sign = '-';
+            fromTo = `De ${bkFrom}`;
+          } else {
+            const bkTo = db.bookmakers.find(b => b.id === c.toBook)?.name || 'Desconhecida';
+            label = 'Transferência';
+            typeClass = 'transfer-item--transfer';
+            sign = '';
+            fromTo = `${bkFrom} → ${bkTo}`;
+          }
+
+          return `
+            <div class="transfer-item ${typeClass}">
+              <div>
+                <div class="transfer-item__label">${label}</div>
+                <div class="transfer-item__meta">${c.date.split('-').reverse().join('/')} • ${fromTo}</div>
+                ${c.note ? `<div class="transfer-item__meta" style="color:var(--text)">${c.note}</div>` : ''}
+              </div>
+              <div class="transfer-item__amount">${sign}${formatMoney(c.amount)}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const amount = parseFloat(document.getElementById('input-amount').value);
+        const bkFromId = inputBookFrom.value;
+        const bkToId = inputBookTo.value;
+        
+        if (amount <= 0) return;
+
+        const idxFrom = db.bookmakers.findIndex(b => b.id === bkFromId);
+        const idxTo = db.bookmakers.findIndex(b => b.id === bkToId);
+
+        if (currentType === 'deposit') {
+          if (db.mercadoPago < amount) {
+            alert('Saldo do Mercado Pago insuficiente.');
+            return;
+          }
+          db.mercadoPago -= amount;
+          db.bookmakers[idxFrom].sportsBalance += amount;
+        } else if (currentType === 'withdraw') {
+          if (db.bookmakers[idxFrom].sportsBalance < amount) {
+            alert('Saldo na Casa de Apostas insuficiente.');
+            return;
+          }
+          db.bookmakers[idxFrom].sportsBalance -= amount;
+          db.mercadoPago += amount;
+        } else if (currentType === 'transfer') {
+          if (bkFromId === bkToId) {
+            alert('Origem e destino devem ser diferentes.');
+            return;
+          }
+          if (db.bookmakers[idxFrom].sportsBalance < amount) {
+            alert('Saldo na Casa de Origem insuficiente.');
+            return;
+          }
+          db.bookmakers[idxFrom].sportsBalance -= amount;
+          db.bookmakers[idxTo].sportsBalance += amount;
+        }
+
+        // Add history record
+        db.cashflow = db.cashflow || [];
+        db.cashflow.push({
+          id: generateId(),
+          date: document.getElementById('input-date').value,
+          type: currentType,
+          amount: amount,
+          fromBook: bkFromId,
+          toBook: currentType === 'transfer' ? bkToId : null,
+          note: document.getElementById('input-note').value
+        });
+
+        saveDb(db);
+        alert('Movimentação salva com sucesso!');
+        form.reset();
+        document.getElementById('input-date').valueAsDate = new Date();
+        updateMpDisplay();
+        updateGlobalUI();
+        
+        populateSelects();
+        renderHistory();
+      });
+
+      // Init
+      populateSelects();
+      updateMode();
+      renderHistory();
+    });
+  </script>
+</body>
+</html>

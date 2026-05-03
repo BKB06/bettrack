@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BetTracker - Relatório</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <div id="global-topbar"></div>
+    <div class="app-body" id="app-body">
+      <aside class="desktop-sidebar" id="global-sidebar"></aside>
+      
+      <main class="app-main desktop-main mobile-main" id="app-main">
+      <div style="margin-bottom: 24px;">
+        <p class="eyebrow">ANÁLISE</p>
+        <h1 class="page-title">Relatório</h1>
+      </div>
+
+      <!-- Top KPI Cards -->
+      <div class="mini-card-grid">
+        <div class="mini-card mini-card--green">
+          <div class="label">ROI</div>
+          <div class="value green" id="top-roi">+0.00%</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">ACERTO</div>
+          <div class="value red" id="top-winrate">0%</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">LUCRO</div>
+          <div class="value green" id="top-profit">R$ 0,00</div>
+        </div>
+      </div>
+
+      <!-- Report List -->
+      <div class="card" style="padding: 0 16px;">
+        <!-- PERFORMANCE -->
+        <div class="report-section-label">PERFORMANCE</div>
+        <div class="report-row">
+          <div class="report-row__label">ROI</div>
+          <div class="report-row__value c-green" id="rep-roi">+0.00%</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Taxa de Acerto</div>
+          <div class="report-row__value c-red" id="rep-winrate">0.0%</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Odd Média</div>
+          <div class="report-row__value" id="rep-odd">0.00</div>
+        </div>
+
+        <!-- APOSTAS -->
+        <div class="report-section-label">APOSTAS</div>
+        <div class="report-row">
+          <div class="report-row__label">Total de Apostas</div>
+          <div class="report-row__value" id="rep-total-bets">0</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Apostas Ganhas</div>
+          <div class="report-row__value c-green" id="rep-won">0</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Apostas Perdidas</div>
+          <div class="report-row__value c-red" id="rep-lost">0</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Apostas Abertas</div>
+          <div class="report-row__value c-gold" id="rep-pending">0</div>
+        </div>
+
+        <!-- VALORES -->
+        <div class="report-section-label">VALORES</div>
+        <div class="report-row">
+          <div class="report-row__label">Total Apostado</div>
+          <div class="report-row__value" id="rep-total-staked">R$ 0,00</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Total Sacado</div>
+          <div class="report-row__value c-blue" id="rep-total-withdraw">R$ 0,00</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Ganhos nas Apostas</div>
+          <div class="report-row__value c-green" id="rep-total-profit">R$ 0,00</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Saldo Total Outros</div>
+          <div class="report-row__value c-blue" id="rep-total-casino">R$ 0,00</div>
+        </div>
+
+        <!-- PATRIMÔNIO -->
+        <div class="report-section-label">PATRIMÔNIO</div>
+        <div class="report-row">
+          <div class="report-row__label">Crescimento %</div>
+          <div class="report-row__value c-green" id="rep-growth-pct">+0.00%</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Crescimento Nominal</div>
+          <div class="report-row__value c-green" id="rep-growth-nom">R$ 0,00</div>
+        </div>
+        <div class="report-row">
+          <div class="report-row__label">Patrimônio Total</div>
+          <div class="report-row__value c-gold" id="rep-patrimonio">R$ 0,00</div>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin-top: 24px; font-size: 11px; color: var(--muted);" id="last-updated"></div>
+      </main>
+
+      <aside class="desktop-right" id="global-right-panel"></aside>
+    </div>
+    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const db = loadDb();
+
+      function formatPct(val) {
+        const sign = val > 0 ? '+' : '';
+        return `${sign}${(val * 100).toFixed(2)}%`;
+      }
+
+      function renderReport() {
+        // Bets stats
+        const resolvedBets = db.bets.filter(b => b.status === 'won' || b.status === 'lost');
+        const wonBets = db.bets.filter(b => b.status === 'won');
+        const lostBets = db.bets.filter(b => b.status === 'lost');
+        const pendingBets = db.bets.filter(b => b.status === 'pending');
+        
+        const totalStaked = resolvedBets.reduce((sum, b) => sum + b.stake, 0);
+        const totalProfit = resolvedBets.reduce((sum, b) => sum + b.profit, 0);
+        
+        const winrate = resolvedBets.length > 0 ? wonBets.length / resolvedBets.length : 0;
+        const roi = totalStaked > 0 ? totalProfit / totalStaked : 0;
+        const avgOdd = resolvedBets.length > 0 ? resolvedBets.reduce((sum, b) => sum + b.odd, 0) / resolvedBets.length : 0;
+
+        // Colors logic
+        const winrateColor = winrate >= 0.5 ? 'c-green' : 'c-red';
+        const roiColor = roi >= 0 ? 'c-green' : 'c-red';
+        const profitColor = totalProfit >= 0 ? 'c-green' : 'c-red';
+
+        // Top Cards
+        const topRoi = document.getElementById('top-roi');
+        topRoi.textContent = formatPct(roi);
+        topRoi.className = `value ${roi >= 0 ? 'green' : 'red'}`;
+        topRoi.parentElement.style.borderColor = roi >= 0 ? 'var(--green-border)' : 'var(--red-border)';
+
+        const topWr = document.getElementById('top-winrate');
+        topWr.textContent = `${(winrate * 100).toFixed(0)}%`;
+        topWr.className = `value ${winrate >= 0.5 ? 'green' : 'red'}`;
+
+        const topPr = document.getElementById('top-profit');
+        topPr.textContent = formatMoney(totalProfit);
+        topPr.className = `value ${totalProfit >= 0 ? 'green' : 'red'}`;
+
+        // List
+        const setEl = (id, val, cls) => {
+          const el = document.getElementById(id);
+          el.textContent = val;
+          if (cls) el.className = `report-row__value ${cls}`;
+        };
+
+        setEl('rep-roi', formatPct(roi), roiColor);
+        setEl('rep-winrate', `${(winrate * 100).toFixed(1)}%`, winrateColor);
+        setEl('rep-odd', avgOdd.toFixed(2));
+
+        setEl('rep-total-bets', db.bets.length);
+        setEl('rep-won', wonBets.length, 'c-green');
+        setEl('rep-lost', lostBets.length, 'c-red');
+        setEl('rep-pending', pendingBets.length, 'c-gold');
+
+        const totalWithdraws = db.cashflow.filter(c => c.type === 'withdraw').reduce((s, c) => s + c.amount, 0);
+        const totalDeposits = db.cashflow.filter(c => c.type === 'deposit').reduce((s, c) => s + c.amount, 0);
+
+        const totalCasino = db.bookmakers.reduce((sum, bk) => sum + bk.casinoBalance, 0);
+        
+        setEl('rep-total-staked', formatMoney(totalStaked));
+        setEl('rep-total-withdraw', formatMoney(totalWithdraws), 'c-blue');
+        setEl('rep-total-profit', formatMoney(totalProfit), profitColor);
+        setEl('rep-total-casino', formatMoney(totalCasino), 'c-blue');
+
+        // Patrimonio
+        const patrimonio = calculatePatrimonio(db);
+        // Simplified growth calculation for demo (current vs total deposits)
+        // If they want real nominal growth: totalProfit + casinoProfit (hard to track without casino logs)
+        // We'll use a simple proxy: patrimonio vs net deposited
+        const netDeposited = totalDeposits - totalWithdraws;
+        const growthNominal = netDeposited > 0 ? (patrimonio - netDeposited) : totalProfit; 
+        const growthPct = netDeposited > 0 ? growthNominal / netDeposited : 0;
+
+        setEl('rep-growth-pct', formatPct(growthPct), growthPct >= 0 ? 'c-green' : 'c-red');
+        setEl('rep-growth-nom', formatMoney(growthNominal), growthNominal >= 0 ? 'c-green' : 'c-red');
+        setEl('rep-patrimonio', formatMoney(patrimonio), 'c-gold');
+
+        // Date formatting
+        const now = new Date();
+        const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        document.getElementById('last-updated').textContent = `Atualizado ${String(now.getDate()).padStart(2, '0')} de ${months[now.getMonth()]} de ${now.getFullYear()}`;
+      }
+
+      renderReport();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BetTracker - Casas de Aposta</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <div id="global-topbar"></div>
+    <div class="app-body" id="app-body">
+      <aside class="desktop-sidebar" id="global-sidebar"></aside>
+      
+      <main class="app-main desktop-main mobile-main" id="app-main">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+        <div>
+          <p class="eyebrow">PORTFÓLIO</p>
+          <h1 class="page-title">Casas de Aposta</h1>
+        </div>
+        <button class="btn btn--subtle btn--sm" id="btn-add-bk">+ Adicionar</button>
+      </div>
+
+      <!-- Add Bookmaker Form (Hidden by default) -->
+      <form id="add-bk-form" class="card" style="display:none; margin-bottom: 24px;">
+        <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">Nova Casa</h2>
+        <div class="field">
+          <label class="field-label">NOME</label>
+          <input type="text" class="input" id="new-bk-name" placeholder="Ex: KTO, Pinnacle..." required>
+        </div>
+        <div class="field">
+          <label class="field-label">COR</label>
+          <div class="color-picker" id="color-picker">
+            <div class="color-swatch active" style="background: #ff3c3c" data-color="#ff3c3c"></div>
+            <div class="color-swatch" style="background: #ff8a00" data-color="#ff8a00"></div>
+            <div class="color-swatch" style="background: #4da8ff" data-color="#4da8ff"></div>
+            <div class="color-swatch" style="background: #a78bfa" data-color="#a78bfa"></div>
+            <div class="color-swatch" style="background: #00d2ff" data-color="#00d2ff"></div>
+            <div class="color-swatch" style="background: #ff5e3a" data-color="#ff5e3a"></div>
+            <div class="color-swatch" style="background: #6ab04c" data-color="#6ab04c"></div>
+            <div class="color-swatch" style="background: #636e72" data-color="#636e72"></div>
+            <div class="color-swatch" style="background: #ffb800" data-color="#ffb800"></div>
+            <div class="color-swatch" style="background: #00e87a" data-color="#00e87a"></div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn--primary btn--full" style="margin-top: 8px;">Adicionar</button>
+      </form>
+
+      <!-- Totals -->
+      <div class="mini-card-grid">
+        <div class="mini-card">
+          <div class="label">Total Esportivo</div>
+          <div class="value green" id="total-sports">R$ 0,00</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">Total Outros</div>
+          <div class="value blue" id="total-casino">R$ 0,00</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">Exposto</div>
+          <div class="value gold" id="total-exposed">R$ 0,00</div>
+        </div>
+      </div>
+
+      <!-- Bookmakers List -->
+      <div id="bookmakers-list"></div>
+
+      </main>
+
+      <aside class="desktop-right" id="global-right-panel"></aside>
+    </div>
+    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      let db = loadDb();
+      let selectedColor = '#ff3c3c';
+
+      const formWrap = document.getElementById('add-bk-form');
+      const btnAdd = document.getElementById('btn-add-bk');
+
+      btnAdd.addEventListener('click', () => { formWrap.style.display = 'block'; });
+
+      document.querySelectorAll('.color-swatch').forEach(swatch => {
+        swatch.addEventListener('click', (e) => {
+          document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+          e.target.classList.add('active');
+          selectedColor = e.target.dataset.color;
+        });
+      });
+
+      formWrap.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('new-bk-name').value;
+
+        db.bookmakers.push({
+          id: generateId(),
+          name,
+          color: selectedColor,
+          sportsBalance: 0,
+          casinoBalance: 0
+        });
+        
+        saveDb(db);
+        formWrap.reset();
+        formWrap.style.display = 'none';
+        refreshAll();
+      });
+
+      window.removeBookmaker = (id) => {
+        if(confirm('Apagar casa de apostas?')) {
+          db.bookmakers = db.bookmakers.filter(b => b.id !== id);
+          saveDb(db);
+          refreshAll();
+        }
+      };
+
+      window.updateBalance = (id, type, value) => {
+        const bk = db.bookmakers.find(b => b.id === id);
+        if (bk) {
+          bk[type] = parseFloat(value) || 0;
+          saveDb(db);
+          renderTotals(); // Just update totals without re-rendering everything to keep focus
+        }
+      };
+
+      function renderTotals() {
+        const tSports = db.bookmakers.reduce((sum, bk) => sum + Number(bk.sportsBalance), 0);
+        const tCasino = db.bookmakers.reduce((sum, bk) => sum + Number(bk.casinoBalance), 0);
+        const tExposed = calculateExposed(db);
+
+        document.getElementById('total-sports').textContent = formatMoney(tSports);
+        document.getElementById('total-casino').textContent = formatMoney(tCasino);
+        document.getElementById('total-exposed').textContent = formatMoney(tExposed);
+        
+        // Also update the total sum in each card if needed (we'll let full refresh handle that on blur if we want)
+      }
+
+      function renderList() {
+        const list = document.getElementById('bookmakers-list');
+        // Sort bookmakers by total balance (sports + casino) descending
+        const sorted = db.bookmakers.slice().sort((a, b) => {
+          const totalA = Number(a.sportsBalance) + Number(a.casinoBalance);
+          const totalB = Number(b.sportsBalance) + Number(b.casinoBalance);
+          return totalB - totalA;
+        });
+
+        list.innerHTML = sorted.map(bk => {
+          const total = Number(bk.sportsBalance) + Number(bk.casinoBalance);
+          
+          // Calculate exposed for this bookmaker
+          const bkExposed = db.bets
+            .filter(b => b.status === 'pending' && b.bookmakerId === bk.id)
+            .reduce((sum, b) => sum + Number(b.stake), 0);
+
+          let exposedHtml = '';
+          if (bkExposed > 0) {
+            exposedHtml = `
+              <div class="bookmaker-exposed">
+                <span class="bookmaker-exposed__label">VALOR EXPOSTO</span>
+                <span class="bookmaker-exposed__value">${formatMoney(bkExposed)}</span>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="bookmaker-card">
+              <div class="bookmaker-card__header">
+                <div class="bookmaker-dot" style="background: ${bk.color}"></div>
+                <div class="bookmaker-name">${bk.name}</div>
+                <div class="bookmaker-total">${formatMoney(total)}</div>
+                <button class="bookmaker-remove" onclick="removeBookmaker('${bk.id}')">×</button>
+              </div>
+              <div class="bookmaker-balances">
+                <div class="bookmaker-balance-box">
+                  <div class="label">SALDO ESPORTIVO</div>
+                  <input type="number" step="0.01" class="bookmaker-balance-input" value="${Number(bk.sportsBalance).toFixed(2)}" onchange="updateBalance('${bk.id}', 'sportsBalance', this.value); this.parentElement.parentElement.previousElementSibling.children[2].textContent = formatMoney(parseFloat(this.value) + parseFloat(this.parentElement.nextElementSibling.querySelector('input').value))">
+                </div>
+                <div class="bookmaker-balance-box">
+                  <div class="label">SALDO OUTROS</div>
+                  <input type="number" step="0.01" class="bookmaker-balance-input" value="${Number(bk.casinoBalance).toFixed(2)}" onchange="updateBalance('${bk.id}', 'casinoBalance', this.value); this.parentElement.parentElement.previousElementSibling.children[2].textContent = formatMoney(parseFloat(this.value) + parseFloat(this.parentElement.previousElementSibling.querySelector('input').value))">
+                </div>
+              </div>
+              ${exposedHtml}
+            </div>
+          `;
+        }).join('');
+      }
+
+      function refreshAll() {
+        renderTotals();
+        renderList();
+        updateGlobalUI();
+      }
+
+      refreshAll();
+    });
+  </script>
+</body>
+</html>
