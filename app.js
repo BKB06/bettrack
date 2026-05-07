@@ -172,6 +172,23 @@ function updateGlobalUI() {
     dPatEl.textContent = formatMoney(patrimonio);
   }
 
+  // Update Desktop Sidebar (Saldo por Casa)
+  const sidebarEl = document.getElementById('global-sidebar');
+  if (sidebarEl) {
+    let bkListHtml = db.bookmakers.map(bk => {
+      const total = Number(bk.sportsBalance) + Number(bk.casinoBalance);
+      return `<div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:${bk.color}"></div> ${bk.name}</span> <span class="value">${formatMoney(total)}</span></div>`;
+    }).join('');
+
+    const sidebarSection = sidebarEl.querySelector('.desktop-sidebar-section:nth-of-type(1)');
+    if (sidebarSection) {
+      sidebarSection.innerHTML = `
+        <h3>Saldo Por Casa</h3>
+        ${bkListHtml}
+      `;
+    }
+  }
+
   // Right Panel: Abertas List
   const rightPanelEl = document.getElementById('global-right-panel');
   if (rightPanelEl) {
@@ -413,4 +430,31 @@ function renderShell() {
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
   renderShell();
+});
+
+// Update automatically if user changes data in another tab
+window.addEventListener('storage', (e) => {
+  if (e.key === 'bettracker_db') {
+    renderShell(); // Re-render the shell to reflect changes instantly
+    
+    // If we're on the index page, ensure the dropdown reflects new balances
+    const bkSelect = document.getElementById('bet-bookmaker');
+    if (bkSelect) {
+      const db = loadDb();
+      const currentSelected = bkSelect.value;
+      bkSelect.innerHTML = '';
+      db.bookmakers.forEach(bk => {
+        const opt = document.createElement('option');
+        opt.value = bk.id;
+        opt.textContent = `${bk.name} (Esportes: R$ ${bk.sportsBalance.toFixed(2)})`;
+        bkSelect.appendChild(opt);
+      });
+      if (currentSelected) bkSelect.value = currentSelected;
+      
+      // Update form feedback just in case the balance dropped below the typed stake
+      if (typeof window.updateFeedback === 'function') {
+        window.updateFeedback();
+      }
+    }
+  }
 });

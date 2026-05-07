@@ -98,7 +98,8 @@
         db.bookmakers.forEach(bk => {
           const opt = document.createElement('option');
           opt.value = bk.id;
-          opt.textContent = `${bk.name} (Saldo: R$ ${bk.sportsBalance.toFixed(2)})`;
+          const totalBalance = bk.sportsBalance + bk.casinoBalance;
+          opt.textContent = `${bk.name} (Saldo: R$ ${totalBalance.toFixed(2)})`;
           bkSelect.appendChild(opt);
         });
       }
@@ -115,7 +116,7 @@
           return;
         }
 
-        const balance = bk.sportsBalance;
+        const balance = bk.sportsBalance + bk.casinoBalance;
         
         if (stake > balance) {
           feedbackContainer.innerHTML = `
@@ -164,10 +165,24 @@
         const stake = parseFloat(stakeInput.value);
         const bkIndex = db.bookmakers.findIndex(b => b.id === bkId);
         
-        if (bkIndex === -1 || stake > db.bookmakers[bkIndex].sportsBalance) return;
+        if (bkIndex === -1) return;
+        
+        let bkRef = db.bookmakers[bkIndex];
+        let totalBalance = bkRef.sportsBalance + bkRef.casinoBalance;
+        
+        if (stake > totalBalance) {
+           alert('Saldo insuficiente na casa de apostas selecionada! Atualize seu banco/fundos primeiro ou altere o valor da aposta.');
+           return;
+        }
 
-        // Deduct stake
-        db.bookmakers[bkIndex].sportsBalance -= stake;
+        // Deduct stake (prioritize sports balance)
+        if (stake <= bkRef.sportsBalance) {
+            bkRef.sportsBalance -= stake;
+        } else {
+            let remain = stake - bkRef.sportsBalance;
+            bkRef.sportsBalance = 0;
+            bkRef.casinoBalance -= remain;
+        }
 
         // Add bet
         db.bets.push({
@@ -192,7 +207,8 @@
         db.bookmakers.forEach(bk => {
           const opt = document.createElement('option');
           opt.value = bk.id;
-          opt.textContent = `${bk.name} (Saldo: R$ ${bk.sportsBalance.toFixed(2)})`;
+          const totalBalance = bk.sportsBalance + bk.casinoBalance;
+          opt.textContent = `${bk.name} (Saldo: R$ ${totalBalance.toFixed(2)})`;
           bkSelect.appendChild(opt);
         });
         updateFeedback();
@@ -221,58 +237,7 @@
             });
             const text = result.data.text;
             console.log("OCR Text:", text);
-
-            // Parsing Odd
-            // Suporta: "Odd 1.50", "Odds totais 1.61", "@ 1.61"
-            const oddMatch = text.match(/(?:Odd|Odds totais|@)[\s\S]*?(\d+[,.]\d{2})/i) || text.match(/(\d+[,.]\d{2})/);
-            if (oddMatch) {
-              oddInput.value = parseFloat(oddMatch[1].replace(',', '.'));
-            }
-
-            // Parsing Valor (Stake)
-            // Suporta: "R$ 50.00", "Valor 50.00", "Aposta 0,50 R$"
-            const stakeMatch = text.match(/(?:R\$\s*|Valor|Aposta)[\s\S]*?(\d+[,.]\d{2})/i) || text.match(/(\d+[,.]\d{2})\s*R\$/i);
-            if (stakeMatch) {
-              stakeInput.value = parseFloat(stakeMatch[1].replace(',', '.'));
-            }
-
-            // Parsing Casa (Bookmaker)
-            const textLower = text.toLowerCase();
-            const bks = Array.from(bkSelect.options);
-            for (let opt of bks) {
-              if (!opt.value) continue;
-              const nameLower = opt.textContent.split(' (')[0].toLowerCase();
-              if (nameLower && textLower.includes(nameLower)) {
-                bkSelect.value = opt.value;
-                break;
-              }
-            }
-
-            // Parsing Evento (Fallback heurístico)
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3);
-            
-            const isInvalidEventLine = (l) => {
-              const lower = l.toLowerCase();
-              return lower.includes('playoff') || 
-                     lower.includes('único') || lower.includes('unico') ||
-                     lower.includes('múltipla') || lower.includes('multipla') ||
-                     lower.includes('aposta') || lower.includes('odds') || lower.includes('cashout');
-            };
-
-            // Procura por " x ", " vs ", " — " ou " - "
-            const eventMatch = lines.find(l => l.match(/\s+(x|vs|—|-|–)\s+/i) && !isInvalidEventLine(l));
-            
-            if (eventMatch) {
-              document.getElementById('bet-event').value = eventMatch;
-            } else if (lines.length > 0) {
-              // Fallback: primeira linha que não seja só número ou palavras genéricas
-              const validLines = lines.filter(l => !l.match(/^[\d.,R$\s]+$/) && !isInvalidEventLine(l) && !l.toLowerCase().match(/^(categoria|superbet|betano|bet365)$/i));
-              if (validLines.length > 0) {
-                document.getElementById('bet-event').value = validLines[0];
-              }
-            }
-
-            updateFeedback();
+            parseBetText(text);
 
           } catch (error) {
             console.error('OCR Error:', error);
@@ -284,6 +249,179 @@
           }
         });
       }
+
+      // --- TEXT PARSER ---
+      function parseBetText(text) {
+        const textLower = text.toLowerCase();
+        
+        // Limpa possíveis artefatos visuais e espaços excessivos
+        let cleanText = text.replace(/[\r\n]+/g, '\n').trim();
+
+        // 1. Parsing Casa
+        const bks = Array.from(bkSelect.options);
+        for (let opt of bks) {
+          if (!opt.value) continue;
+          const nameLower = opt.textContent.split(' (')[0].toLowerCase();
+          if (nameLower && textLower.includes(nameLower)) {
+            bkSelect.value = opt.value;
+            break;
+          }
+        }
+
+        // 2. Parsing Valor (Stake) e Ganhos Potenciais
+        let stake = 0;
+        let retornos = 0;
+
+        // Betano "Simples R$ XX,XX" ou "Aposta R$ XX,XX"
+        const stakePattern1 = cleanText.match(/(?:simples|múltipla|dupla|aposta|stake)\s*(?:r\$|brl|eur)?\s*(\d+[,.]\d{2})/i);
+        const stakePattern2 = cleanText.match(/valor(?: da aposta)?[\s\S]{0,15}?(?:r\$|brl|eur)?\s*(\d+[,.]\d{2})/i);
+        
+        if (stakePattern1) {
+          stake = parseFloat(stakePattern1[1].replace(',', '.'));
+        } else if (stakePattern2) {
+          stake = parseFloat(stakePattern2[1].replace(',', '.'));
+        }
+
+        // Tenta extrair Ganhos Potenciais/Retorno (Útil pra inferir a Odd)
+        const retornosMatch = cleanText.match(/(?:ganhos potenciais|retornos?|potencial|pagamento)[\s\S]{0,20}?(?:r\$|brl|eur)?\s*(\d+[,.]\d{2})/i);
+        if (retornosMatch) {
+          retornos = parseFloat(retornosMatch[1].replace(',', '.'));
+        }
+
+        // Se stake ainda é 0, tenta achar o primeiro valor em dinheiro que NÃO seja o retorno
+        if (stake === 0) {
+           const fallbackStake = cleanText.match(/(?:r\$|brl)\s*(\d+[,.]\d{2})/i);
+           if (fallbackStake) {
+              const val = parseFloat(fallbackStake[1].replace(',', '.'));
+              if (val !== retornos) stake = val;
+           }
+        }
+
+        if (stake > 0) {
+          stakeInput.value = stake;
+        }
+
+        // 3. Parsing Odd
+        let odd = 0;
+        let matchOdd = cleanText.match(/(?:odds totais|odd|@)\s*([0-9]+[,.][0-9]{2})/i);
+        
+        // Betano as vezes coloca a odd solta na frente do Simples (Ex: "Simples R$12,17  2.00")
+        const topBarMatch = cleanText.match(/(?:simples|múltipla|dupla).*?r\$[\s\S]{0,10}?\d+[,.]\d{2}\s*([1-9][0-9]*[,.][0-9]{2})/i);
+
+        if (matchOdd) {
+          odd = parseFloat(matchOdd[1].replace(',', '.'));
+        } else if (topBarMatch) {
+          odd = parseFloat(topBarMatch[1].replace(',', '.'));
+        } else if (stake > 0 && retornos > 0) {
+          // Calcula ODD real com base no retorno
+          odd = Math.round((retornos / stake) * 100) / 100;
+        } else {
+          // Último caso: Encontrar a primeira Odd típica solta no texto (Ignorando Valores Financeiros rastreados)
+          const decimals = [...cleanText.matchAll(/\b([1-9][0-9]*[,.][0-9]{2})\b/g)].map(m => parseFloat(m[1].replace(',', '.')));
+          const cand = decimals.find(v => v !== stake && v !== retornos && v >= 1.01 && v <= 100.0);
+          if (cand) odd = cand;
+        }
+
+        if (odd >= 1.01) {
+          oddInput.value = odd;
+        } else {
+          oddInput.value = 1.0; // Evitar que fique vazio/zero se falhar
+        }
+
+        // 4. Parsing Evento / Descrição
+        const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+        
+        const isInvalid = (l) => {
+          const lw = l.toLowerCase();
+          return lw.includes('playoff') || lw.includes('aposta') || 
+                 lw.includes('odds') || lw.includes('ganhos') || 
+                 lw.includes('retornos') || lw.includes('superbet') ||
+                 lw.includes('betano') || lw.includes('bet365') || 
+                 lw.includes('informações sobre') ||
+                 lw.match(/^[\d.,\s$r]+$/i);
+        };
+
+        let validLines = lines.filter(l => !isInvalid(l));
+        
+        let desc = "";
+        const eventIdx = validLines.findIndex(l => l.match(/\s+(x|vs|—|-|–)\s+/i));
+
+        if (eventIdx !== -1) {
+          desc = validLines[eventIdx];
+          if (eventIdx > 0) {
+             desc = validLines[eventIdx - 1] + ' - ' + desc;
+          }
+        } else {
+          // Pega apenas a primeira linha válida para a descrição principal e evita grudar odds/times bagunçados
+          if (validLines.length > 0) desc = validLines[0];
+          
+          // Se tiver um " X " na segunda linha, anexa (é o confronto provável)
+          if (validLines.length > 1 && validLines[1].match(/\s+(x|vs)\s+/i)) {
+             desc += " - " + validLines[1];
+          }
+        }
+        
+        // Remove a sujeira "3 Q Simples R$12,17 200 A" ou falhas de quebra de linha do OCR 
+        desc = desc.replace(/^.*?(?:simples|múltipla|dupla)[\s\S]*?(?:r\$|brl|eur)?\s*\d+[,.]\d{2}[^a-zA-ZÀ-ÿ]*(?=[a-zA-ZÀ-ÿ])/i, '');
+        
+        // Remove odds da Betano "soltas" no meio do texto e tudo que vier depois (ex: '2.00 Arsenal 27º' ou só '2.00' no final)
+        desc = desc.replace(/\s+\d+[,.]\d{2}(?:\s+.*)?$/, '');
+
+        // Limpa possíveis artefatos como "BD ", "(e ", "a ", ícones iniciais
+        desc = desc.replace(/^[\s\W_]+/, '').replace(/^(?:e|a|q|o|bd)\s+/i, '').replace(/^[\s\W_]+/, '').trim();
+        
+        if (desc) {
+          document.getElementById('bet-event').value = desc;
+        }
+
+        updateFeedback();
+      }
+
+      // --- CLIPBOARD PASTE LOGIC ---
+      document.addEventListener('paste', async (e) => {
+        // Se colar imagem
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let item of items) {
+          if (item.type.indexOf('image') === 0) {
+            // Tem uma imagem no clipboard! Vamos jogar direto no OCR se o tesseract estiver lá.
+            e.preventDefault();
+            const blob = item.getAsFile();
+            if(!blob) continue;
+
+            if (btnOcr) {
+              const originalText = btnOcr.textContent;
+              btnOcr.textContent = 'Lendo Área de Transferência...';
+              btnOcr.disabled = true;
+
+              try {
+                const result = await Tesseract.recognize(blob, 'por');
+                console.log("OCR Paste:", result.data.text);
+                parseBetText(result.data.text);
+              } catch(err) {
+                console.error(err);
+                alert("Erro OCR no colar: " + err.message);
+              } finally {
+                btnOcr.textContent = originalText;
+                btnOcr.disabled = false;
+              }
+            }
+            return;
+          } else if (item.type === 'text/plain') {
+            // Pode ser texto colado do site
+            item.getAsString(text => {
+               // Se o texto parecer um bilhete (tem R$, tem Odds, etc), usar o parseBetText
+               // Só preenche se o usuário não tiver focado dentro de um campo de texto e digitando
+               const activeEl = document.activeElement;
+               if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') && activeEl.id !== 'bet-event') {
+                 // Se o usuário está digitando especificamente na ODD ou Valor, deixa passar normalmente.
+               } else if (text.toLowerCase().includes('aposta') || text.includes('R$')) {
+                 e.preventDefault();
+                 parseBetText(text);
+               }
+            });
+          }
+        }
+      });
     });
   </script>
 </body>
