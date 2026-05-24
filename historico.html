@@ -113,17 +113,29 @@
           if (result === 'won') {
             bet.profit = (bet.stake * bet.odd) - bet.stake;
             bet.status = 'won';
-            // Return stake + profit to bookmaker
-            db.bookmakers[bkIndex].sportsBalance += (bet.stake + bet.profit);
+            
+            if (bet.isFreebet) {
+                // Freebet: devolve APENAS o lucro
+                db.bookmakers[bkIndex].sportsBalance += bet.profit;
+            } else {
+                // Return stake + profit to bookmaker
+                db.bookmakers[bkIndex].sportsBalance += (bet.stake + bet.profit);
+            }
           } else if (result === 'lost') {
-            bet.profit = -bet.stake;
             bet.status = 'lost';
-            // Stake was already deducted when placed, nothing to add back
+            if (bet.isFreebet) {
+                bet.profit = 0; // Freebet perdida não gera perda financeira real
+            } else {
+                bet.profit = -bet.stake;
+            }
+            // Stake was already deducted when placed (if not freebet), nothing to add back
           } else if (result === 'void') {
             bet.profit = 0;
             bet.status = 'void';
-            // Return stake only
-            db.bookmakers[bkIndex].sportsBalance += bet.stake;
+            if (!bet.isFreebet) {
+                // Return stake only if it wasn't a freebet
+                db.bookmakers[bkIndex].sportsBalance += bet.stake;
+            }
           }
         }
         
@@ -165,11 +177,13 @@
 
           if (b.status === 'pending') {
             const catClass = b.category === 'Outros' || b.category === 'Cassino' ? 'tag--purple' : 'tag--blue';
+            const freebetTag = b.isFreebet ? '<span class="tag tag--gold" style="background:#ffb80044;">🎁 FREEBET</span>' : '';
             return `
               <div class="bet-card">
                 <div class="bet-card__title" style="margin-bottom: 8px;">${b.event}</div>
                 <div class="bet-card__tags" style="margin-bottom: 16px;">
                   <span class="tag tag--gold">⌛ ABERTA</span>
+                  ${freebetTag}
                   <span class="tag ${catClass}">${b.category}</span>
                   <span class="tag" style="background: ${bk ? bk.color : '#fff'}22; color: ${bk ? bk.color : '#fff'};">${bkName}</span>
                 </div>
@@ -202,28 +216,34 @@
             pnlClass = '';
             pnlText = 'R$ 0,00';
           }
+          
+          const freebetTagResolved = b.isFreebet ? '<span class="badge" style="background:#ffb80044; color:#ffb800;">🎁 Freebet</span>' : '';
 
-            return `
-              <div class="bet-card">
-                <div class="bet-card__header">
-                  <div class="bet-card__info">
-                    <div class="bet-card__title">${b.event}</div>
-                    <div class="bet-card__tags">
-                      ${statusBadge}
-                      <span class="tag tag--muted">${bkName}</span>
-                      <span class="tag tag--muted">Odd ${b.odd.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div class="bet-card__pnl ${pnlClass}">
-                    ${pnlText}
+          return `
+            <div class="bet-card">
+              <div class="bet-card__header">
+                <div class="bet-card__info">
+                  <div class="bet-card__title">${b.event}</div>
+                  <div class="bet-card__tags">
+                    ${statusBadge}
+                    ${freebetTagResolved}
+                    <span class="tag tag--muted">${bkName}</span>
+                    <span class="tag tag--muted">Odd ${b.odd.toFixed(2)}</span>
                   </div>
                 </div>
-                <div class="bet-card__footer">
-                  <span>Data: <strong>${b.date.split('-').reverse().join('/')}</strong></span>
-                  <span>Stake: <strong>${formatMoney(b.stake)}</strong></span>
+                <div class="bet-card__pnl ${pnlClass}">
+                  ${pnlText}
                 </div>
               </div>
-            `;
+              <div class="bet-card__footer" style="display:flex; justify-content:space-between; align-items:flex-end;">
+                <div>
+                  <span>Data: <strong>${b.date.split('-').reverse().join('/')}</strong></span><br>
+                  <span>Stake: <strong>${formatMoney(b.stake)}</strong></span>
+                </div>
+                <button class="bet-card__delete" onclick="removeBet('${b.id}')">× excluir</button>
+              </div>
+            </div>
+          `;
         }).join('');
       }
 

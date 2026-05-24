@@ -64,6 +64,14 @@
           <input type="date" class="input" id="bet-date" required>
         </div>
 
+        <div class="field">
+          <label class="field-label" style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="bet-freebet" style="width: auto; margin:0; cursor:pointer;">
+            <span style="font-weight: 600;">Aposta Feita com Freebet</span>
+          </label>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px; margin-left: 21px;">O valor desta aposta não será descontado da banca. Se ganhar, o valor da aposto não é somado aos lucros.</div>
+        </div>
+
         <div id="feedback-container"></div>
 
         <button type="submit" class="btn btn--primary btn--full" id="btn-submit" style="margin-top: 12px;">
@@ -105,10 +113,11 @@
       }
 
       function updateFeedback() {
-        const odd = parseFloat(oddInput.value) || 0;
-        const stake = parseFloat(stakeInput.value) || 0;
+        const odd = parseFloat(oddInput.value.replace(',', '.')) || 0;
+        const stake = parseFloat(stakeInput.value.replace(',', '.')) || 0;
         const bkId = bkSelect.value;
         const bk = db.bookmakers.find(b => b.id === bkId);
+        const isFreebet = document.getElementById('bet-freebet').checked;
 
         if (!bk || stake <= 0) {
           feedbackContainer.innerHTML = '';
@@ -118,7 +127,8 @@
 
         const balance = bk.sportsBalance + bk.casinoBalance;
         
-        if (stake > balance) {
+        // Use epsilon para evitar erro de precisão de ponto flutuante
+        if (!isFreebet && stake > balance + 0.0001) {
           feedbackContainer.innerHTML = `
             <div class="feedback-box feedback-box--error">
               <div class="feedback-row">
@@ -133,8 +143,8 @@
           `;
           btnSubmit.disabled = true;
         } else if (odd > 1) {
-          const retorno = stake * odd;
-          const lucro = retorno - stake;
+          const retorno = isFreebet ? (stake * odd) - stake : stake * odd;
+          const lucro = isFreebet ? retorno : retorno - stake;
           feedbackContainer.innerHTML = `
             <div class="feedback-box feedback-box--ok">
               <div class="feedback-row">
@@ -157,12 +167,14 @@
       bkSelect.addEventListener('change', updateFeedback);
       oddInput.addEventListener('input', updateFeedback);
       stakeInput.addEventListener('input', updateFeedback);
+      document.getElementById('bet-freebet').addEventListener('change', updateFeedback);
 
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         
         const bkId = bkSelect.value;
-        const stake = parseFloat(stakeInput.value);
+        const stake = parseFloat(stakeInput.value.replace(',', '.')) || 0;
+        const isFreebet = document.getElementById('bet-freebet').checked;
         const bkIndex = db.bookmakers.findIndex(b => b.id === bkId);
         
         if (bkIndex === -1) return;
@@ -170,18 +182,22 @@
         let bkRef = db.bookmakers[bkIndex];
         let totalBalance = bkRef.sportsBalance + bkRef.casinoBalance;
         
-        if (stake > totalBalance) {
+        if (!isFreebet && stake > totalBalance + 0.0001) {
            alert('Saldo insuficiente na casa de apostas selecionada! Atualize seu banco/fundos primeiro ou altere o valor da aposta.');
            return;
         }
 
-        // Deduct stake (prioritize sports balance)
-        if (stake <= bkRef.sportsBalance) {
-            bkRef.sportsBalance -= stake;
-        } else {
-            let remain = stake - bkRef.sportsBalance;
-            bkRef.sportsBalance = 0;
-            bkRef.casinoBalance -= remain;
+        // Deduct stake if not freebet
+        if (!isFreebet) {
+          if (stake <= bkRef.sportsBalance + 0.0001) {
+              bkRef.sportsBalance -= stake;
+              if (bkRef.sportsBalance < 0) bkRef.sportsBalance = 0;
+          } else {
+              let remain = stake - bkRef.sportsBalance;
+              bkRef.sportsBalance = 0;
+              bkRef.casinoBalance -= remain;
+              if (bkRef.casinoBalance < 0) bkRef.casinoBalance = 0;
+          }
         }
 
         // Add bet
@@ -190,12 +206,17 @@
           bookmakerId: bkId,
           category: document.getElementById('bet-category').value,
           event: document.getElementById('bet-event').value,
-          odd: parseFloat(oddInput.value),
+          odd: parseFloat(oddInput.value.replace(',', '.')) || 0,
           stake: stake,
+          isFreebet: isFreebet,
           date: document.getElementById('bet-date').value,
           status: 'pending',
           profit: 0
         });
+
+        // Ensure rounding for storage
+        bkRef.sportsBalance = Math.max(0, parseFloat(bkRef.sportsBalance.toFixed(2)));
+        bkRef.casinoBalance = Math.max(0, parseFloat(bkRef.casinoBalance.toFixed(2)));
 
         saveDb(db);
         alert('Aposta registrada com sucesso!');
@@ -328,47 +349,74 @@
           oddInput.value = 1.0; // Evitar que fique vazio/zero se falhar
         }
 
-        // 4. Parsing Evento / Descrição
-        const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 2);
-        
-        const isInvalid = (l) => {
-          const lw = l.toLowerCase();
-          return lw.includes('playoff') || lw.includes('aposta') || 
-                 lw.includes('odds') || lw.includes('ganhos') || 
-                 lw.includes('retornos') || lw.includes('superbet') ||
-                 lw.includes('betano') || lw.includes('bet365') || 
-                 lw.includes('informações sobre') ||
-                 lw.match(/^[\d.,\s$r]+$/i);
-        };
-
-        let validLines = lines.filter(l => !isInvalid(l));
-        
-        let desc = "";
-        const eventIdx = validLines.findIndex(l => l.match(/\s+(x|vs|—|-|–)\s+/i));
-
-        if (eventIdx !== -1) {
-          desc = validLines[eventIdx];
-          if (eventIdx > 0) {
-             desc = validLines[eventIdx - 1] + ' - ' + desc;
+// 4. Parsing Freebet
+          const betFreebet = document.getElementById('bet-freebet');
+          if (betFreebet) {
+             betFreebet.checked = !!cleanText.match(/\b(grátis|freebet|créditos? de aposta|bônus|aposta grátis)\b/i);
           }
-        } else {
-          // Pega apenas a primeira linha válida para a descrição principal e evita grudar odds/times bagunçados
-          if (validLines.length > 0) desc = validLines[0];
+
+          // 5. Parsing Evento / Descrição
+          const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 2);
           
-          // Se tiver um " X " na segunda linha, anexa (é o confronto provável)
-          if (validLines.length > 1 && validLines[1].match(/\s+(x|vs)\s+/i)) {
-             desc += " - " + validLines[1];
-          }
-        }
-        
-        // Remove a sujeira "3 Q Simples R$12,17 200 A" ou falhas de quebra de linha do OCR 
-        desc = desc.replace(/^.*?(?:simples|múltipla|dupla)[\s\S]*?(?:r\$|brl|eur)?\s*\d+[,.]\d{2}[^a-zA-ZÀ-ÿ]*(?=[a-zA-ZÀ-ÿ])/i, '');
-        
-        // Remove odds da Betano "soltas" no meio do texto e tudo que vier depois (ex: '2.00 Arsenal 27º' ou só '2.00' no final)
-        desc = desc.replace(/\s+\d+[,.]\d{2}(?:\s+.*)?$/, '');
+          const isInvalid = (l) => {
+            const lw = l.toLowerCase();
+            return lw.includes('playoff') || lw.includes('aposta') || 
+                   lw.includes('odds') || lw.includes('ganhos') || 
+                   lw.includes('retornos') || lw.includes('superbet') ||
+                   lw.includes('betano') || lw.includes('bet365') || 
+                   lw.includes('informações sobre') ||
+                   lw.includes('simples') || lw.includes('dupla') || lw.includes('múltipla') ||
+                   lw.match(/^[\d.,\s$r+]+$/i) ||
+                   lw.match(/^(?:\W|es|rs|r\$)*[\d.,\s]+$/i); // Ignora lixo como 'ES 260' ou apanas números textuais
+          };
 
-        // Limpa possíveis artefatos como "BD ", "(e ", "a ", ícones iniciais
-        desc = desc.replace(/^[\s\W_]+/, '').replace(/^(?:e|a|q|o|bd)\s+/i, '').replace(/^[\s\W_]+/, '').trim();
+          let validLines = lines.filter(l => !isInvalid(l));
+          
+          let desc = "";
+          const eventIdx = validLines.findIndex(l => l.match(/\s+(x|vs|—|-|–)\s+/i));
+
+          if (eventIdx !== -1) {
+            desc = validLines[eventIdx];
+            // Anexa a linha anterior se ela não parecer só um monte de números
+            if (eventIdx > 0 && !validLines[eventIdx - 1].match(/\d{2,}/)) {
+               desc = validLines[eventIdx - 1] + ' - ' + desc;
+            }
+          } else {
+            const betterLines = validLines.filter(l => l.length > 6 && l.match(/[a-zA-Z]{4,}/) && !l.match(/^\d/));
+            if (betterLines.length > 0) desc = betterLines[0];
+            if (betterLines.length > 1 && betterLines[1].match(/\s+(x|vs)\s+/i)) {
+               desc += " - " + betterLines[1];
+            }
+          }
+          
+          // Remove a sujeira inicial de Simples, Multipla, e etc que possa ter passado
+          desc = desc.replace(/^.*?(?:simples|múltipla|dupla)[\s\S]*?\d+[,.]\d{2}[^a-zA-ZÀ-ÿ]*(?=[a-zA-ZÀ-ÿ])/i, '');
+          
+          // Remove odds da Betano "soltas" no meio do texto
+          desc = desc.replace(/\s+\d+[,.]\d{2}(?:\s+.*)?$/, '');
+          
+          // Remove horários (ex: 21:30, 2130) e textos de data/hora (Esta noite, Hoje) do final do evento
+          desc = desc.replace(/\s*(?:esta noite|hoje|amanhã|amanha).*/i, '');
+          desc = desc.replace(/\s+\d{2}[:h]\d{2}.*$/i, '');
+          
+          // Remove resquícios de OCR confusos no final (ex: "co 519,", "ço 2130")
+          desc = desc.replace(/\s+(?:cio|ço|co|es|as|os|do|de)\s*[\d:.,\s]*$/i, '');
+          desc = desc.replace(/\s+\d{3,4}[.,\s]*$/i, '');
+
+          // Limpa artefatos residuais e caracteres sozinhos
+          desc = desc.replace(/^[\s\W_]+/, '')
+                     .replace(/^(?:e|a|q|o|bd)\b\s*/i, '') // \b garante que não corte 'o' de 'oklahoma' erroneamente
+                     .replace(/^[\s\W_]+/, '')
+                     .trim();
+          
+          // Fallback se a descrição for vazia ou for um lixo de 1 letra
+          if (!desc || desc.length <= 2) {
+             // Tenta pegar a maior linha de texto válida, assumindo que é o confronto
+             const validTextLines = validLines.filter(l => l.length > 5 && l.match(/[a-zA-Z]/));
+             if (validTextLines.length > 0) {
+                 desc = validTextLines[0];
+             }
+          }
         
         if (desc) {
           document.getElementById('bet-event').value = desc;

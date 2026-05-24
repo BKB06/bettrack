@@ -41,7 +41,7 @@ function generateId() {
 
 function calculateExposed(db) {
   return db.bets
-    .filter(b => b.status === 'pending')
+    .filter(b => b.status === 'pending' && !b.isFreebet)
     .reduce((sum, b) => sum + Number(b.stake), 0);
 }
 
@@ -195,9 +195,10 @@ function updateGlobalUI() {
     const pendingBets = db.bets.filter(b => b.status === 'pending');
     let abertasHtml = '';
     pendingBets.slice(0, 5).forEach(b => {
+      const freebetMarker = b.isFreebet ? ' <span style="color:#ffb800;">(Freebet)</span>' : '';
       abertasHtml += `
         <div style="font-size: 13px; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-          <div style="color:var(--muted); margin-bottom:2px;">${b.category} • Odd ${b.odd}</div>
+          <div style="color:var(--muted); margin-bottom:2px;">${b.category} • Odd ${b.odd}${freebetMarker}</div>
           <div style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.event}</div>
         </div>
       `;
