@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+const text = `Simples R$10,00   3.10
+Criar Aposta  3.10
+Athletico-PR
+Mirassol
+Amanhã 16:00
+Menos de 10.5
+Escanteios Mais/Menos
+Athletico-PR (+2)
+Resultado Final
+APOSTA GRÁTIS R$10,00
+Ganhos Potenciais R$21,00`;
+
+function debug(s) { document.body.innerHTML += s + "<br>"; }
+
+let cleanText = text.replace(/[\r\n]+/g, '\n').trim();
+const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+
+const isInvalid = (l) => {
+    const lw = l.toLowerCase();
+    return lw.includes('playoff') || lw.includes('aposta') || 
+             lw.includes('odds') || lw.includes('ganhos') || 
+             lw.includes('retornos') || lw.includes('superbet') ||
+             lw.includes('betano') || lw.includes('bet365') || lw.includes('pitaco') ||
+             lw.includes('informações sobre') ||
+             lw.includes('simples') || lw.includes('dupla') || lw.includes('múltipla') ||
+             lw.includes('em aberto') || lw.includes('finalizadas') || lw.includes('pendentes') || lw.includes('ao vivo') || lw.includes('em revisão') ||
+             lw.includes('reutilizar') ||
+             /^[\d.,\s$r+hx]+$/i.test(lw) ||
+             /^(?:\W|es|rs|r\$)*[\d.,\s]+x?$/i.test(lw);
+};
+
+let validLines = lines.filter(l => !isInvalid(l));
+
+let desc = "";
+let eventIdx = validLines.findIndex(l => l.match(/\s+(x|vs)\s+/i));
+if (eventIdx === -1) {
+  eventIdx = validLines.findIndex(l => l.match(/\s+(—|-|–)\s+/i) && !l.match(/mais de|menos de|abaixo|acima|handicap|resultado|jogador/i));
+}
+
+if (eventIdx !== -1) {
+desc = validLines[eventIdx];
+if (eventIdx > 0 && !validLines[eventIdx - 1].match(/\d{2,}/)) {
+   desc = validLines[eventIdx - 1] + ' - ' + desc;
+}
+} else {
+const betterLines = validLines.filter(l => l.length >= 3 && l.match(/[a-zA-Z]{3,}/) && !l.match(/^\d/) && !l.match(/menos de|mais de|abaixo|acima|handicap|chutes|marcar|jogador/i));
+if (betterLines.length > 0) desc = betterLines[0];
+if (betterLines.length > 1 && !desc.match(/\s+(x|vs|-|–)\s+/i)) {
+   if (betterLines[1].length < 35 && !betterLines[1].match(/\d/) && !betterLines[1].match(/menos de|mais de|abaixo|acima|chutes|marcar|jogador/i)) {
+       desc += " - " + betterLines[1];
+   }
+}
+}
+
+// Remove "Reutilizar" (comum no OCR da Betano)
+desc = desc.replace(/^(?:[\s\W_]|[a-zA-Z]{1,3}\b)*reutiliz[a-z]*[\s\W_]*/i, '');
+desc = desc.replace(/\breutiliz[a-z]*\b/i, '');
+
+// Limpa artefatos residuais e caracteres sozinhos
+desc = desc.replace(/^([a-zA-ZÀ-ÿ]{1}\b[\s\W\d]*)*(?=[a-zA-ZÀ-ÿ])/i, '');
+desc = desc.replace(/^[\s\W_]+/, '').replace(/[^\w\)]+$/, '').trim();
+
+debug(desc);
+</script>
+</body>
+</html>

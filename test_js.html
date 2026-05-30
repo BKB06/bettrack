@@ -1,0 +1,6 @@
+<script>
+    let desc = 'Mirassol';
+    // Let's print exactly what it does
+    document.body.innerHTML += desc.replace(/[^\w\)]+([a-zA-ZÀ-ÿ]{1,3}\b[^\w\)]*)*$/i, '') + '<br>';
+    document.body.innerHTML += desc.replace(/^([a-zA-ZÀ-ÿ]{1,3}\b[\s\W\d]*)*(?=[a-zA-ZÀ-ÿ])/i, '');
+    </script>

@@ -1,0 +1,12 @@
+<script>
+const validLines = ['Athletico-PR', 'Mirassol', 'Amanhã 16:00', 'Escanteios Mais/Menos'];
+let desc = "";
+const betterLines = validLines.filter(l => l.length >= 3 && l.match(/[a-zA-Z]{3,}/) && !l.match(/^\d/) && !l.match(/menos de|mais de|abaixo|acima|handicap|chutes|marcar|jogador/i));
+if (betterLines.length > 0) desc = betterLines[0];
+if (betterLines.length > 1 && !desc.match(/\s+(x|vs|-|–)\s+/i)) {
+   if (betterLines[1].length < 35 && !betterLines[1].match(/\d/) && !betterLines[1].match(/menos de|mais de|abaixo|acima|chutes|marcar|jogador/i)) {
+       desc += " - " + betterLines[1];
+   }
+}
+console.log(desc);
+</script>

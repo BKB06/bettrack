@@ -334,20 +334,31 @@
         let odd = 0;
         let matchOdd = cleanText.match(/(?:odds totais|odd|@)\s*([0-9]+[,.][0-9]{2})/i);
         
-        // Betano as vezes coloca a odd solta na frente do Simples (Ex: "Simples R$12,17  2.00")
-        const topBarMatch = cleanText.match(/(?:simples|múltipla|dupla).*?r\$[\s\S]{0,10}?\d+[,.]\d{2}\s*([1-9][0-9]*[,.][0-9]{2})/i);
+        // Betano as vezes coloca a odd solta na frente do Simples ou Criar Aposta
+        const topBarMatch = cleanText.match(/(?:simples|múltipla|dupla).*?r\$[\s\S]{0,40}?\d+[,.]\d{2}\s*([1-9][0-9]*[,.][0-9]{2})/i);
+        const criarApostaMatch = cleanText.match(/(?:(?:criar aposta)|(?:bet builder))[\s\S]{0,40}?([1-9][0-9]*[,.][0-9]{2})/i);
 
-                  const oddXMatch = cleanText.match(/\b([1-9][0-9]*[,.][0-9]{2})\s*[xX*×]/i);
+        const oddXMatch = cleanText.match(/\b([1-9][0-9]*[,.][0-9]{2})\s*[xX*×]/i);
 
-          if (matchOdd) {
-            odd = parseFloat(matchOdd[1].replace(',', '.'));
-          } else if (oddXMatch) {
-            odd = parseFloat(oddXMatch[1].replace(',', '.'));
-          } else if (topBarMatch) {
+        // 4. Parsing Freebet
+        let isFreebet = false;
+        const betFreebet = document.getElementById('bet-freebet');
+        if (betFreebet) {
+            isFreebet = !!cleanText.match(/\b(grátis|freebet|créditos? de aposta|bônus|aposta grátis)\b/i);
+            betFreebet.checked = isFreebet;
+        }
+
+        if (matchOdd) {
+          odd = parseFloat(matchOdd[1].replace(',', '.'));
+        } else if (oddXMatch) {
+          odd = parseFloat(oddXMatch[1].replace(',', '.'));
+        } else if (topBarMatch) {
           odd = parseFloat(topBarMatch[1].replace(',', '.'));
+        } else if (criarApostaMatch) {
+          odd = parseFloat(criarApostaMatch[1].replace(',', '.'));
         } else if (stake > 0 && retornos > 0) {
-          // Calcula ODD real com base no retorno
-          odd = Math.round((retornos / stake) * 100) / 100;
+          // Calcula ODD real com base no retorno, considerando se é Freebet (lucro líquido) ou não (bruto)
+          odd = Math.round(((retornos / stake) + (isFreebet ? 1 : 0)) * 100) / 100;
         } else {
           // Último caso: Encontrar a primeira Odd típica solta no texto (Ignorando Valores Financeiros rastreados)
           const decimals = [...cleanText.matchAll(/\b([1-9][0-9]*[,.][0-9]{2})\b/g)].map(m => parseFloat(m[1].replace(',', '.')));
@@ -361,24 +372,20 @@
           oddInput.value = 1.0; // Evitar que fique vazio/zero se falhar
         }
 
-// 4. Parsing Freebet
-          const betFreebet = document.getElementById('bet-freebet');
-          if (betFreebet) {
-             betFreebet.checked = !!cleanText.match(/\b(grátis|freebet|créditos? de aposta|bônus|aposta grátis)\b/i);
-          }
-
           // 5. Parsing Evento / Descrição
           const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 2);
           
           const isInvalid = (l) => {
             const lw = l.toLowerCase();
             return lw.includes('playoff') || lw.includes('aposta') || 
-                     lw.includes('odds') || lw.includes('ganhos') || 
+                     lw.includes('odds') || lw.includes('odd:') || lw.includes('odd ') || lw.includes('ganhos') || 
                      lw.includes('retornos') || lw.includes('superbet') ||
                      lw.includes('betano') || lw.includes('bet365') || lw.includes('pitaco') ||
                      lw.includes('informações sobre') ||
                      lw.includes('simples') || lw.includes('dupla') || lw.includes('múltipla') ||
                      lw.includes('em aberto') || lw.includes('finalizadas') || lw.includes('pendentes') || lw.includes('ao vivo') || lw.includes('em revisão') ||
+                     lw.includes('reutilizar') ||
+                     lw.includes('amanhã') || lw.includes('amanha') || lw.includes('hoje') || lw.includes('esta noite') ||
                      /^[\d.,\s$r+hx]+$/i.test(lw) ||
                      /^(?:\W|es|rs|r\$)*[\d.,\s]+x?$/i.test(lw);
           };
@@ -386,7 +393,10 @@
           let validLines = lines.filter(l => !isInvalid(l));
           
           let desc = "";
-          const eventIdx = validLines.findIndex(l => l.match(/\s+(x|vs|—|-|–)\s+/i));
+          let eventIdx = validLines.findIndex(l => l.match(/\s+(x|vs)\s+/i));
+          if (eventIdx === -1) {
+              eventIdx = validLines.findIndex(l => l.match(/\s+(—|-|–)\s+/i) && !l.match(/mais de|menos de|abaixo|acima|handicap|resultado|jogador/i));
+          }
 
           if (eventIdx !== -1) {
             desc = validLines[eventIdx];
@@ -395,10 +405,12 @@
                desc = validLines[eventIdx - 1] + ' - ' + desc;
             }
           } else {
-            const betterLines = validLines.filter(l => l.length > 6 && l.match(/[a-zA-Z]{4,}/) && !l.match(/^\d/));
+            const betterLines = validLines.filter(l => l.length >= 3 && l.match(/[a-zA-Z]{3,}/) && !l.match(/menos de|mais de|abaixo|acima|handicap|chutes|marcar|jogador|escanteios/i));
             if (betterLines.length > 0) desc = betterLines[0];
-            if (betterLines.length > 1 && betterLines[1].match(/\s+(x|vs)\s+/i)) {
-               desc += " - " + betterLines[1];
+            if (betterLines.length > 1 && !desc.match(/\s+(x|vs|-|–)\s+/i)) {
+               if (betterLines[1].length < 35 && !betterLines[1].match(/menos de|mais de|abaixo|acima|chutes|marcar|jogador|escanteios/i)) {
+                   desc += " - " + betterLines[1];
+               }
             }
           }
           
@@ -407,19 +419,26 @@
           
           // Remove odds da Betano "soltas" no meio do texto e menções a odd
           desc = desc.replace(/\s*(?:\b(?:odd|odds)\b|@).*$/i, '');
-          desc = desc.replace(/\s+\d+[,.]\d{2}(?:\s+.*)?$/, '');
-          
+          desc = desc.replace(/\s+\d+[,.]\d{2}[\s\W_]*$/i, '');
+          desc = desc.replace(/\s+\d+[,.]\d{2}\s+(?=-|x|vs)/i, ' '); // remove odds que estão entre os nomes
+
           // Remove horários (ex: 21:30, 2130) e textos de data/hora (Esta noite, Hoje) do final do evento
-          desc = desc.replace(/\s*(?:esta noite|hoje|amanhã|amanha).*/i, '');
-          desc = desc.replace(/\s+\d{2}[:h]\d{2}.*$/i, '');
+          desc = desc.replace(/\s*(?:esta noite|hoje|amanhã|amanha)\b/ig, '');
+          desc = desc.replace(/\s+\d{2}[:h]\d{2}\b/ig, '');
           
           // Remove resquícios de OCR confusos no final (ex: "co 519,", "ço 2130")
           desc = desc.replace(/\s+(?:cio|ço|co|es|as|os|do|de)\s*[\d:.,\s]*$/i, '');
           desc = desc.replace(/\s+\d{3,4}[.,\s]*$/i, '');
 
+          // Remove "Reutilizar" (comum no OCR da Betano)
+          desc = desc.replace(/^(?:[\s\W_]|[a-zA-Z]{1,3}\b)*reutiliz[a-z]*[\s\W_]*/i, '');
+          desc = desc.replace(/\breutiliz[a-z]*\b/i, '');
+
           // Limpa artefatos residuais e caracteres sozinhos
-          desc = desc.replace(/^([a-zA-ZÀ-ÿ]{1,3}\b[\s\W\d]*)*(?=[a-zA-ZÀ-ÿ])/i, '');
-          desc = desc.replace(/[^\w\)]+([a-zA-ZÀ-ÿ]{1,3}\b[^\w\)]*)*$/i, '');
+          // Apenas remove uma letra solta no começo (como "o ", "e ") para não comer times como "PSG" ou "San "
+          desc = desc.replace(/^([a-zA-ZÀ-ÿ]{1}\b[\s\W\d]*)*(?=[a-zA-ZÀ-ÿ])/i, '');
+          // Remove número isolado no começo que costuma ser ícone de OCR (ex: "1 Athletico-PR")
+          desc = desc.replace(/^[0-9O]\s+(?=[a-zA-ZÀ-ÿ]{3,})/i, '');
           desc = desc.replace(/^[\s\W_]+/, '').replace(/[^\w\)]+$/, '').trim();
           
           // Fallback se a descrição for vazia ou for um lixo de 1 letra
