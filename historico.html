@@ -143,14 +143,59 @@
         refreshAll();
       }
 
+      function revertBet(betId) {
+        const betIndex = db.bets.findIndex(b => b.id === betId);
+        if (betIndex === -1) return;
+
+        const bet = db.bets[betIndex];
+        const bkIndex = db.bookmakers.findIndex(b => b.id === bet.bookmakerId);
+
+        if (bkIndex !== -1) {
+          if (bet.status === 'won') {
+            if (bet.isFreebet) {
+              db.bookmakers[bkIndex].sportsBalance -= bet.profit;
+            } else {
+              db.bookmakers[bkIndex].sportsBalance -= (bet.stake + bet.profit);
+            }
+          } else if (bet.status === 'void') {
+            if (!bet.isFreebet) {
+              db.bookmakers[bkIndex].sportsBalance -= bet.stake;
+            }
+          }
+        }
+
+        bet.status = 'pending';
+        bet.profit = 0;
+        
+        saveDb(db);
+        refreshAll();
+      }
+
       window.resolveBet = resolveBet; // Expose to HTML inline onclick
+      window.revertBet = revertBet;
 
       // Remove bet
       window.removeBet = (id) => {
-        if(confirm('Excluir aposta?')) {
-          db.bets = db.bets.filter(b => b.id !== id);
-          saveDb(db);
-          refreshAll();
+        if(confirm('Excluir aposta? O valor investido será devolvido à banca como se a aposta nunca tivesse existido.')) {
+          // Revert its status to pending first so we undo wins/losses
+          revertBet(id);
+          
+          // Now it's pending. If it was not a freebet, refund the initial stake
+          const betIndex = db.bets.findIndex(b => b.id === id);
+          if (betIndex !== -1) {
+            const bet = db.bets[betIndex];
+            const bkIndex = db.bookmakers.findIndex(b => b.id === bet.bookmakerId);
+            if (bkIndex !== -1 && !bet.isFreebet) {
+              db.bookmakers[bkIndex].sportsBalance += bet.stake;
+              // Clean up any edge cases with max
+              db.bookmakers[bkIndex].sportsBalance = Math.max(0, parseFloat(db.bookmakers[bkIndex].sportsBalance.toFixed(2)));
+            }
+            
+            // Finally delete it
+            db.bets.splice(betIndex, 1);
+            saveDb(db);
+            refreshAll();
+          }
         }
       };
 
@@ -240,7 +285,10 @@
                   <span>Data: <strong>${b.date.split('-').reverse().join('/')}</strong></span><br>
                   <span>Stake: <strong>${formatMoney(b.stake)}</strong></span>
                 </div>
-                <button class="bet-card__delete" onclick="removeBet('${b.id}')">× excluir</button>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn--secondary" style="padding: 4px 8px; font-size: 11px; height: auto;" onclick="revertBet('${b.id}')">↩ Desfazer</button>
+                  <button class="bet-card__delete" style="position:static;" onclick="removeBet('${b.id}')">× excluir</button>
+                </div>
               </div>
             </div>
           `;

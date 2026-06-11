@@ -228,7 +228,8 @@
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         
-        const amount = parseFloat(document.getElementById('input-amount').value);
+        let amountStr = document.getElementById('input-amount').value;
+        const amount = parseFloat(amountStr.replace(',', '.'));
         const bkFromId = inputBookFrom.value;
         const bkToId = inputBookTo.value;
         
@@ -238,30 +239,36 @@
         const idxTo = db.bookmakers.findIndex(b => b.id === bkToId);
 
         if (currentType === 'deposit') {
-          if (db.mercadoPago < amount) {
+          if (parseFloat(db.mercadoPago.toFixed(2)) < amount) {
             alert('Saldo do Mercado Pago insuficiente.');
             return;
           }
           db.mercadoPago -= amount;
+          db.mercadoPago = Math.max(0, parseFloat(db.mercadoPago.toFixed(2)));
           db.bookmakers[idxFrom].sportsBalance += amount;
+          db.bookmakers[idxFrom].sportsBalance = parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2));
         } else if (currentType === 'withdraw') {
-          if (db.bookmakers[idxFrom].sportsBalance < amount) {
+          if (parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2)) < amount) {
             alert('Saldo na Casa de Apostas insuficiente.');
             return;
           }
           db.bookmakers[idxFrom].sportsBalance -= amount;
+          db.bookmakers[idxFrom].sportsBalance = Math.max(0, parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2)));
           db.mercadoPago += amount;
+          db.mercadoPago = parseFloat(db.mercadoPago.toFixed(2));
         } else if (currentType === 'transfer') {
           if (bkFromId === bkToId) {
             alert('Origem e destino devem ser diferentes.');
             return;
           }
-          if (db.bookmakers[idxFrom].sportsBalance < amount) {
+          if (parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2)) < amount) {
             alert('Saldo na Casa de Origem insuficiente.');
             return;
           }
           db.bookmakers[idxFrom].sportsBalance -= amount;
+          db.bookmakers[idxFrom].sportsBalance = Math.max(0, parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2)));
           db.bookmakers[idxTo].sportsBalance += amount;
+          db.bookmakers[idxTo].sportsBalance = parseFloat(db.bookmakers[idxTo].sportsBalance.toFixed(2));
         }
 
         // Add history record
