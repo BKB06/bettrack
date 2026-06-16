@@ -180,6 +180,7 @@
         if (bkIndex === -1) return;
         
         let bkRef = db.bookmakers[bkIndex];
+        
         let totalBalance = bkRef.sportsBalance + bkRef.casinoBalance;
         
         if (!isFreebet && stake > totalBalance + 0.0001) {
@@ -187,17 +188,10 @@
            return;
         }
 
-        // Deduct stake if not freebet
+        // Deduct stake if not freebet (only from sportsBalance)
         if (!isFreebet) {
-          if (stake <= bkRef.sportsBalance + 0.0001) {
-              bkRef.sportsBalance -= stake;
-              if (bkRef.sportsBalance < 0) bkRef.sportsBalance = 0;
-          } else {
-              let remain = stake - bkRef.sportsBalance;
-              bkRef.sportsBalance = 0;
-              bkRef.casinoBalance -= remain;
-              if (bkRef.casinoBalance < 0) bkRef.casinoBalance = 0;
-          }
+          bkRef.sportsBalance -= stake;
+          if (bkRef.sportsBalance < 0) bkRef.sportsBalance = 0;
         }
 
         // Add bet
@@ -216,7 +210,6 @@
 
         // Ensure rounding for storage
         bkRef.sportsBalance = Math.max(0, parseFloat(bkRef.sportsBalance.toFixed(2)));
-        bkRef.casinoBalance = Math.max(0, parseFloat(bkRef.casinoBalance.toFixed(2)));
 
         saveDb(db);
         alert('Aposta registrada com sucesso!');
