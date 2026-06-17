@@ -640,17 +640,24 @@ textarea {
 }
 
 .bet-card__delete {
-  background: none;
-  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   color: var(--muted);
   cursor: pointer;
-  font-size: 11px;
+  transition: all 0.15s;
   padding: 0;
-  font-family: var(--font);
-  margin-top: 6px;
-  transition: color 0.15s;
 }
-.bet-card__delete:hover { color: var(--red); }
+.bet-card__delete:hover { 
+  background: var(--red-bg);
+  border-color: rgba(255, 60, 60, 0.3);
+  color: var(--red); 
+}
 
 /* ═══════════════════════════════════════════════════════════════
    CALENDÁRIO
@@ -758,30 +765,48 @@ textarea {
 
 .filter-bar {
   display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 24px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding-bottom: 0;
   scrollbar-width: none;
 }
 .filter-bar::-webkit-scrollbar { display: none; }
 
 .filter-btn {
-  padding: 8px 16px;
-  border-radius: var(--radius-full);
+  padding: 10px 0;
   border: none;
-  white-space: nowrap;
-  background: var(--card2);
+  background: transparent;
   color: var(--muted);
   cursor: pointer;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   font-family: var(--font);
-  transition: all 0.15s;
+  white-space: nowrap;
+  transition: color 0.15s;
+  position: relative;
+  border-radius: 0;
+}
+.filter-btn::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background 0.15s;
+  border-radius: 2px 2px 0 0;
+}
+.filter-btn:hover {
+  color: var(--text);
 }
 .filter-btn.active {
+  color: var(--green);
+}
+.filter-btn.active::after {
   background: var(--green);
-  color: #000;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1104,21 +1129,7 @@ textarea {
   font-size: 14px;
 }
 
-.bet-card__delete {
-  font-family: var(--font);
-  font-size: 11px;
-  color: var(--muted);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.bet-card__delete:hover {
-  color: var(--text);
-}
+/* Duplicate bet-card__delete removed */
 
 /* ═══════════════════════════════════════════════════════════════
    DIVIDERS

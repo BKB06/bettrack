@@ -65,10 +65,11 @@
       <!-- Lista Completa -->
       <section>
         <div class="filter-bar">
-          <button class="filter-btn active" data-filter="all">Todas</button>
-          <button class="filter-btn" data-filter="pending">Abertas</button>
+          <button class="filter-btn" data-filter="all">Todas</button>
+          <button class="filter-btn active" data-filter="pending">Abertas</button>
           <button class="filter-btn" data-filter="won">Acertadas</button>
           <button class="filter-btn" data-filter="lost">Erradas</button>
+          <button class="filter-btn" data-filter="void">Devolvidas</button>
         </div>
         <div id="all-bets-container"></div>
       </section>
@@ -85,7 +86,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       let db = loadDb();
       let currentDate = new Date();
-      let activeFilter = 'all';
+      let activeFilter = 'pending';
 
       function renderKPIs() {
         const wonBets = db.bets.filter(b => b.status === 'won');
@@ -176,23 +177,35 @@
 
       // Remove bet
       window.removeBet = (id) => {
-        if(confirm('Excluir aposta? O valor investido será devolvido à banca como se a aposta nunca tivesse existido.')) {
+        const betIndex = db.bets.findIndex(b => b.id === id);
+        if (betIndex === -1) return;
+        const bet = db.bets[betIndex];
+
+        let msg = 'Excluir aposta? O valor investido será devolvido à banca como se a aposta nunca tivesse existido.';
+        if (bet.status === 'void') {
+          msg = 'Excluir aposta Devolvida? Como o dinheiro já havia retornado para a banca, isso apenas apagará o registro do histórico sem alterar o seu saldo atual.';
+        } else if (bet.status === 'won') {
+          msg = 'Excluir aposta Ganha? O lucro obtido será removido do seu saldo e o valor investido voltará ao estado original (como se nunca tivesse apostado).';
+        }
+
+        if(confirm(msg)) {
           // Revert its status to pending first so we undo wins/losses
           revertBet(id);
           
           // Now it's pending. If it was not a freebet, refund the initial stake
-          const betIndex = db.bets.findIndex(b => b.id === id);
-          if (betIndex !== -1) {
-            const bet = db.bets[betIndex];
-            const bkIndex = db.bookmakers.findIndex(b => b.id === bet.bookmakerId);
-            if (bkIndex !== -1 && !bet.isFreebet) {
-              db.bookmakers[bkIndex].sportsBalance += bet.stake;
+          // We need to find the index again because revertBet saved/mutated db
+          const updatedBetIndex = db.bets.findIndex(b => b.id === id);
+          if (updatedBetIndex !== -1) {
+            const updatedBet = db.bets[updatedBetIndex];
+            const bkIndex = db.bookmakers.findIndex(b => b.id === updatedBet.bookmakerId);
+            if (bkIndex !== -1 && !updatedBet.isFreebet) {
+              db.bookmakers[bkIndex].sportsBalance += updatedBet.stake;
               // Clean up any edge cases with max
               db.bookmakers[bkIndex].sportsBalance = Math.max(0, parseFloat(db.bookmakers[bkIndex].sportsBalance.toFixed(2)));
             }
             
             // Finally delete it
-            db.bets.splice(betIndex, 1);
+            db.bets.splice(updatedBetIndex, 1);
             saveDb(db);
             refreshAll();
           }
@@ -225,7 +238,12 @@
             const freebetTag = b.isFreebet ? '<span class="tag tag--gold" style="background:#ffb80044;">🎁 FREEBET</span>' : '';
             return `
               <div class="bet-card">
-                <div class="bet-card__title" style="margin-bottom: 8px;">${b.event}</div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                  <div class="bet-card__title" style="margin-bottom: 0;">${b.event}</div>
+                  <button class="bet-card__delete" onclick="removeBet('${b.id}')" title="Excluir aposta (apagar do sistema)">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  </button>
+                </div>
                 <div class="bet-card__tags" style="margin-bottom: 16px;">
                   <span class="tag tag--gold">⌛ ABERTA</span>
                   ${freebetTag}
@@ -242,10 +260,8 @@
                 <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                   <button class="btn btn--win" style="flex: 1;" onclick="resolveBet('${b.id}', 'won')">✓ Acertou</button>
                   <button class="btn btn--lose" style="flex: 1;" onclick="resolveBet('${b.id}', 'lost')">✗ Errou</button>
-                  <button class="btn btn--icon" style="width: 42px; height: 42px; border-radius: var(--radius-md);" onclick="resolveBet('${b.id}', 'void')">∅</button>
+                  <button class="btn btn--icon" style="width: 42px; height: 42px; border-radius: var(--radius-md);" onclick="resolveBet('${b.id}', 'void')" title="Aposta Devolvida / Anulada">∅</button>
                 </div>
-                
-                <button class="bet-card__delete" onclick="removeBet('${b.id}')">× excluir</button>
               </div>
             `;
           } else if (b.status === 'won') {
@@ -287,7 +303,9 @@
                 </div>
                 <div style="display: flex; gap: 8px;">
                   <button class="btn btn--secondary" style="padding: 4px 8px; font-size: 11px; height: auto;" onclick="revertBet('${b.id}')">↩ Desfazer</button>
-                  <button class="bet-card__delete" style="position:static;" onclick="removeBet('${b.id}')">× excluir</button>
+                  <button class="bet-card__delete" onclick="removeBet('${b.id}')" title="Excluir aposta">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  </button>
                 </div>
               </div>
             </div>
