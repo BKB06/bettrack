@@ -702,18 +702,21 @@ textarea {
 
 /* Célula base */
 .cal-cell {
-  aspect-ratio: 1;
   border-radius: 7px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 700;
   border: 1px solid var(--border);
   color: var(--muted);
   background: transparent;
   cursor: default;
-  transition: background 0.1s;
+  transition: background 0.15s, border-color 0.15s;
+  padding: 4px 2px;
+  min-height: 40px;
+  gap: 2px;
 }
 
 /* Estado lucrativo */
@@ -740,10 +743,13 @@ textarea {
 
 /* Valor PnL dentro da célula */
 .cal-cell__pnl {
-  font-size: 7px;
+  font-size: 9px;
   font-family: var(--mono);
   line-height: 1;
   margin-top: 1px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0.9;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1346,7 +1352,7 @@ textarea {
 
   .desktop-right {
     display: block;
-    width: 300px;
+    width: 340px;
     flex-shrink: 0;
     overflow-y: auto;
     border-left: 1px solid var(--border);

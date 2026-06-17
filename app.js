@@ -130,14 +130,14 @@ function renderGlobalCalendar() {
   }
 
   for (let x = 0; x < firstDayIndex; x++) {
-    grid.innerHTML += `<div class="cal-cell" style="border-color:transparent; padding:2px; min-height:24px;"></div>`;
+    grid.innerHTML += `<div class="cal-cell" style="border-color:transparent;"></div>`;
   }
 
   const todayStr = new Date().toISOString().split('T')[0];
   for (let i = 1; i <= daysInMonth; i++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
     let cellClass = 'cal-cell';
-    let style = 'padding:2px; min-height:24px; font-size:10px; display:flex; flex-direction:column; align-items:center; justify-content:center;';
+    let pnlHtml = '';
 
     if (dateStr === todayStr) cellClass += ' cal-cell--today';
 
@@ -145,11 +145,15 @@ function renderGlobalCalendar() {
       const pnl = dailyProfit[dateStr];
       if (pnl > 0) {
         cellClass += ' cal-cell--win';
+        pnlHtml = `<div class="cal-cell__pnl">+${pnl.toFixed(0)}</div>`;
       } else if (pnl < 0) {
         cellClass += ' cal-cell--lose';
+        pnlHtml = `<div class="cal-cell__pnl">${pnl.toFixed(0)}</div>`;
+      } else {
+        pnlHtml = `<div class="cal-cell__pnl" style="color:var(--muted)">0</div>`;
       }
     }
-    grid.innerHTML += `<div class="${cellClass}" style="${style}">${i}</div>`;
+    grid.innerHTML += `<div class="${cellClass}">${i}${pnlHtml}</div>`;
   }
 }
 
@@ -293,6 +297,9 @@ function updateGlobalUI() {
       </div>
     `;
   }
+
+  // Re-render calendar after right panel rebuild
+  renderGlobalCalendar();
 }
 
 // ─── NAVIGATION (SHELL) ────────────────────────────────────────
@@ -425,7 +432,6 @@ function renderShell() {
   }
 
   updateGlobalUI();
-  renderGlobalCalendar();
 }
 
 // Initialize on DOM load
