@@ -191,6 +191,12 @@ function updateGlobalUI() {
         ${bkListHtml}
       `;
     }
+    
+    // Also update Banco and Exposto values dynamically
+    const bVal = document.getElementById('sidebar-banco-val');
+    if (bVal) bVal.textContent = formatMoney(db.mercadoPago);
+    const eVal = document.getElementById('sidebar-exposto-val');
+    if (eVal) eVal.textContent = formatMoney(calculateExposed(db));
   }
 
   // Right Panel: Abertas List
@@ -214,22 +220,6 @@ function updateGlobalUI() {
       abertasHtml = `<div style="font-size: 13px; color:var(--muted);">Nenhuma aposta em aberto.</div>`;
     }
 
-    // Right Panel: Casas Summary
-    let casasHtml = db.bookmakers.map(bk => {
-      const totalBk = Number(bk.sportsBalance) + Number(bk.casinoBalance);
-      return `
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px; margin-bottom:6px;">
-          <span style="display:flex; align-items:center; gap:6px;">
-            <div style="width:8px; height:8px; border-radius:50%; background:${bk.color}"></div>
-            ${bk.name}
-          </span>
-          <span style="font-family:var(--mono); color:var(--green)">${formatMoney(totalBk)}</span>
-        </div>
-      `;
-    }).join('');
-
-    const exp = calculateExposed(db);
-
     rightPanelEl.innerHTML = `
       <div style="margin-bottom: 24px;">
         <div class="cal-nav" style="margin-bottom: 8px;">
@@ -251,22 +241,6 @@ function updateGlobalUI() {
         </div>
         <div class="cal-grid" id="global-cal-grid" style="gap:2px;">
           <!-- JS fills this -->
-        </div>
-      </div>
-
-      <div style="margin-bottom: 32px;">
-        <h3 style="font-size: 12px; color: var(--muted); text-transform: uppercase; margin-bottom: 16px;">Casas</h3>
-        ${casasHtml}
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
-          <span style="display:flex; align-items:center; gap:6px;">
-            <div style="width:8px; height:8px; border-radius:50%; background:var(--blue)"></div>
-            Mercado Pago
-          </span>
-          <span style="font-family:var(--mono); color:var(--blue)">${formatMoney(db.mercadoPago)}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:8px; color:var(--gold);">
-          <span>⚡ Exposto:</span>
-          <span style="font-family:var(--mono);">${formatMoney(exp)}</span>
         </div>
       </div>
 
@@ -369,7 +343,12 @@ function renderShell() {
 
       <div class="desktop-sidebar-section">
         <h3>Banco</h3>
-        <div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:var(--blue)"></div> Mercado Pago</span> <span class="value" style="color:var(--blue)">${formatMoney(db.mercadoPago)}</span></div>
+        <div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:var(--blue)"></div> Mercado Pago</span> <span class="value" id="sidebar-banco-val" style="color:var(--blue)">${formatMoney(db.mercadoPago)}</span></div>
+      </div>
+
+      <div class="desktop-sidebar-section">
+        <h3>Exposto</h3>
+        <div class="sidebar-bk-row"><span class="name">⚡ Exposto</span> <span class="value" id="sidebar-exposto-val" style="color:var(--gold)">${formatMoney(calculateExposed(db))}</span></div>
       </div>
     `;
   }
