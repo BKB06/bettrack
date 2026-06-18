@@ -72,6 +72,7 @@
           <button class="filter-btn" data-filter="void">Devolvidas</button>
         </div>
         <div id="all-bets-container"></div>
+        <div id="pagination-container" class="pagination"></div>
       </section>
 
       </main>
@@ -87,6 +88,8 @@
       let db = loadDb();
       let currentDate = new Date();
       let activeFilter = 'pending';
+      let currentPageNum = 1;
+      const ITEMS_PER_PAGE = 10;
 
       function renderKPIs() {
         const wonBets = db.bets.filter(b => b.status === 'won');
@@ -225,10 +228,23 @@
 
         if (filtered.length === 0) {
           container.innerHTML = '<p class="empty-state">Nenhuma aposta encontrada</p>';
+          document.getElementById('pagination-container').innerHTML = '';
           return;
         }
 
-        container.innerHTML = filtered.map(b => {
+        const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+        if (currentPageNum > totalPages) {
+          currentPageNum = totalPages;
+        }
+        if (currentPageNum < 1) {
+          currentPageNum = 1;
+        }
+
+        const startIndex = (currentPageNum - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        const paginatedBets = filtered.slice(startIndex, endIndex);
+
+        container.innerHTML = paginatedBets.map(b => {
           const bk = db.bookmakers.find(bk => bk.id === b.bookmakerId);
           const bkName = bk ? bk.name : 'Desconhecida';
           let statusBadge, pnlClass, pnlText, actionsHtml = '';
@@ -311,7 +327,31 @@
             </div>
           `;
         }).join('');
+
+        renderPagination(totalPages);
       }
+
+      function renderPagination(totalPages) {
+        const paginationContainer = document.getElementById('pagination-container');
+        if (totalPages <= 1) {
+          paginationContainer.innerHTML = '';
+          return;
+        }
+
+        let html = '';
+        for (let i = 1; i <= totalPages; i++) {
+          const activeClass = i === currentPageNum ? 'active' : '';
+          html += `<button class="pagination-btn ${activeClass}" onclick="goToPage(${i})">${i}</button>`;
+        }
+        paginationContainer.innerHTML = html;
+      }
+
+      window.goToPage = function(page) {
+        currentPageNum = page;
+        renderAllBets();
+        // Opcional: fazer scroll suave para o topo da lista
+        document.getElementById('all-bets-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
 
       // Filter events
       document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -319,6 +359,7 @@
           document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
           e.target.classList.add('active');
           activeFilter = e.target.dataset.filter;
+          currentPageNum = 1;
           renderAllBets();
         });
       });

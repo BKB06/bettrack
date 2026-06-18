@@ -810,6 +810,52 @@ textarea {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   PAGINAÇÃO (HISTÓRICO)
+   ═══════════════════════════════════════════════════════════════ */
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 24px;
+  padding-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.pagination-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #0284c7;
+  font-size: 15px;
+  font-family: var(--font);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 12px;
+  min-width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.1s;
+  box-shadow: 0 2px 0 #94a3b8;
+}
+
+.pagination-btn:hover {
+  background: #ffffff;
+  color: #0369a1;
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 #94a3b8;
+}
+
+.pagination-btn.active {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #7dd3fc;
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    TRANSFERÊNCIA — TABS DE TIPO
    ═══════════════════════════════════════════════════════════════ */
 
