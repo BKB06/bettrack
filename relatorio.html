@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>BetTracker - Relatório</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <div class="app-wrapper">
@@ -84,10 +84,6 @@
           <div class="report-row__label">Ganhos nas Apostas</div>
           <div class="report-row__value c-green" id="rep-total-profit">R$ 0,00</div>
         </div>
-        <div class="report-row">
-          <div class="report-row__label">Saldo Total Outros</div>
-          <div class="report-row__value c-blue" id="rep-total-casino">R$ 0,00</div>
-        </div>
 
         <!-- PATRIMÔNIO -->
         <div class="report-section-label">PATRIMÔNIO</div>
@@ -113,7 +109,7 @@
     <nav class="mobile-nav" id="global-mobile-nav"></nav>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=5"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const db = loadDb();
@@ -175,12 +171,10 @@
         const totalWithdraws = db.cashflow.filter(c => c.type === 'withdraw').reduce((s, c) => s + c.amount, 0);
         const totalDeposits = db.cashflow.filter(c => c.type === 'deposit').reduce((s, c) => s + c.amount, 0);
 
-        const totalCasino = db.bookmakers.reduce((sum, bk) => sum + bk.casinoBalance, 0);
-        
+
         setEl('rep-total-staked', formatMoney(totalStaked));
         setEl('rep-total-withdraw', formatMoney(totalWithdraws), 'c-blue');
         setEl('rep-total-profit', formatMoney(totalProfit), profitColor);
-        setEl('rep-total-casino', formatMoney(totalCasino), 'c-blue');
 
         // Patrimonio
         const patrimonio = calculatePatrimonio(db);

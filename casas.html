@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>BetTracker - Casas de Aposta</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <div class="app-wrapper">
@@ -52,7 +52,7 @@
           <div class="label">Total Esportivo</div>
           <div class="value green" id="total-sports">R$ 0,00</div>
         </div>
-        <div class="mini-card">
+        <div class="mini-card" style="display:none;">
           <div class="label">Total Outros</div>
           <div class="value blue" id="total-casino">R$ 0,00</div>
         </div>
@@ -72,7 +72,7 @@
     <nav class="mobile-nav" id="global-mobile-nav"></nav>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=5"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       let db = loadDb();
@@ -99,8 +99,7 @@
           id: generateId(),
           name,
           color: selectedColor,
-          sportsBalance: 0,
-          casinoBalance: 0
+          balance: 0
         });
         
         saveDb(db);
@@ -127,62 +126,75 @@
       };
 
       function renderTotals() {
-        const tSports = db.bookmakers.reduce((sum, bk) => sum + Number(bk.sportsBalance), 0);
-        const tCasino = db.bookmakers.reduce((sum, bk) => sum + Number(bk.casinoBalance), 0);
+        const tSports = db.bookmakers.reduce((sum, bk) => sum + Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0)), 0);
         const tExposed = calculateExposed(db);
 
         document.getElementById('total-sports').textContent = formatMoney(tSports);
-        document.getElementById('total-casino').textContent = formatMoney(tCasino);
         document.getElementById('total-exposed').textContent = formatMoney(tExposed);
-        
-        // Also update the total sum in each card if needed (we'll let full refresh handle that on blur if we want)
       }
 
       function renderList() {
         const list = document.getElementById('bookmakers-list');
-        // Sort bookmakers by total balance (sports + casino) descending
         const sorted = db.bookmakers.slice().sort((a, b) => {
-          const totalA = Number(a.sportsBalance) + Number(a.casinoBalance);
-          const totalB = Number(b.sportsBalance) + Number(b.casinoBalance);
+          const totalA = Number(a.balance !== undefined ? a.balance : (a.sportsBalance || 0));
+          const totalB = Number(b.balance !== undefined ? b.balance : (b.sportsBalance || 0));
           return totalB - totalA;
         });
 
         list.innerHTML = sorted.map(bk => {
-          const total = Number(bk.sportsBalance) + Number(bk.casinoBalance);
+          const total = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0));
           
-          // Calculate exposed for this bookmaker
           const bkExposed = db.bets
             .filter(b => b.status === 'pending' && b.bookmakerId === bk.id)
             .reduce((sum, b) => sum + Number(b.stake), 0);
 
-          let exposedHtml = '';
-          if (bkExposed > 0) {
-            exposedHtml = `
-              <div class="bookmaker-exposed">
-                <span class="bookmaker-exposed__label">VALOR EXPOSTO</span>
-                <span class="bookmaker-exposed__value">${formatMoney(bkExposed)}</span>
-              </div>
-            `;
-          }
+          let exposedHtml = `
+            <div class="bookmaker-exposed" ${bkExposed === 0 ? 'style="visibility: hidden;"' : ''}>
+              <span class="bookmaker-exposed__label">VALOR EXPOSTO</span>
+              <span class="bookmaker-exposed__value">${formatMoney(bkExposed)}</span>
+            </div>
+          `;
+
+          const isActive = total >= 0.01;
+          const statusColor = isActive ? 'var(--green)' : 'var(--muted)';
+          const initial = bk.name.charAt(0).toUpperCase();
 
           return `
             <div class="bookmaker-card">
               <div class="bookmaker-card__header">
-                <div class="bookmaker-dot" style="background: ${bk.color}"></div>
-                <div class="bookmaker-name">${bk.name}</div>
-                <div class="bookmaker-total">${formatMoney(total)}</div>
-                <button class="bookmaker-remove" onclick="removeBookmaker('${bk.id}')">×</button>
-              </div>
-              <div class="bookmaker-balances">
-                <div class="bookmaker-balance-box">
-                  <div class="label">SALDO ESPORTIVO</div>
-                  <input type="number" step="0.01" class="bookmaker-balance-input" value="${Number(bk.sportsBalance).toFixed(2)}" onchange="updateBalance('${bk.id}', 'sportsBalance', this.value); this.parentElement.parentElement.previousElementSibling.children[2].textContent = formatMoney(parseFloat(this.value) + parseFloat(this.parentElement.nextElementSibling.querySelector('input').value))">
+                <div class="bookmaker-logo" style="background: rgba(255,255,255,0.05); color: ${bk.color}">
+                  ${initial}
                 </div>
-                <div class="bookmaker-balance-box">
-                  <div class="label">SALDO OUTROS</div>
-                  <input type="number" step="0.01" class="bookmaker-balance-input" value="${Number(bk.casinoBalance).toFixed(2)}" onchange="updateBalance('${bk.id}', 'casinoBalance', this.value); this.parentElement.parentElement.previousElementSibling.children[2].textContent = formatMoney(parseFloat(this.value) + parseFloat(this.parentElement.previousElementSibling.querySelector('input').value))">
+                <div class="bookmaker-title-wrapper">
+                  <div class="bookmaker-name">${bk.name}</div>
+                  <div class="bookmaker-status">
+                    <div class="status-dot" style="background: ${statusColor}"></div>
+                    ${isActive ? 'ativo' : 'inativo'}
+                  </div>
+                </div>
+                <button class="bookmaker-remove" onclick="removeBookmaker('${bk.id}')" title="Remover Casa">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+              
+              <div class="bookmaker-card__divider"></div>
+              
+              <div class="bookmaker-card__body">
+                <div class="label" style="font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; font-weight: 700;">SALDO</div>
+                <div style="display: flex; align-items: baseline; gap: 4px; margin-bottom: 16px;">
+                  <span style="color: ${statusColor}; font-size: 15px; font-weight: 800; font-family: var(--mono);">R$</span>
+                  <input type="number" step="0.01" class="bookmaker-balance-input" style="color: ${statusColor};" value="${total.toFixed(2)}" onchange="updateBalance('${bk.id}', 'balance', this.value); renderTotals();">
+                </div>
+                
+                <div class="bookmaker-url-row">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                  <input type="text" class="url-input-clean" value="${(bk.url || getDefaultBookmakerUrl(bk.name)).replace(/^https?:\/\/(www\.)?/, '')}" onchange="updateUrl('${bk.id}', this.value.startsWith('http') ? this.value : 'https://' + this.value)" placeholder="dominio.com">
+                  <a href="${bk.url || getDefaultBookmakerUrl(bk.name)}" target="_blank" class="external-link-btn" title="Acessar site">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                  </a>
                 </div>
               </div>
+              
               ${exposedHtml}
             </div>
           `;

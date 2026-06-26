@@ -463,6 +463,18 @@ textarea {
   font-family: var(--mono);
 }
 
+/* Chrome, Safari, Edge, Opera */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 /* Select */
 .select {
   width: 100%;
@@ -923,77 +935,130 @@ textarea {
    CASAS DE APOSTAS
    ═══════════════════════════════════════════════════════════════ */
 
+#bookmakers-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
 .bookmaker-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: 12px;
+  padding: 16px;
 }
 
 .bookmaker-card__header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
-.bookmaker-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+.bookmaker-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
   flex-shrink: 0;
 }
-.bookmaker-name {
+.bookmaker-title-wrapper {
   flex: 1;
-  font-weight: 800;
-  font-size: 16px;
 }
-.bookmaker-total {
-  font-family: var(--mono);
-  font-weight: 800;
-  font-size: 14px;
+.bookmaker-name {
+  font-weight: 700;
+  font-size: 15px;
   color: var(--text);
+  line-height: 1.2;
+}
+.bookmaker-status {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 .bookmaker-remove {
-  background: none;
-  border: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   color: var(--muted);
   cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  padding: 0 4px;
-  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  transition: all 0.15s;
 }
-.bookmaker-remove:hover { color: var(--red); }
+.bookmaker-remove:hover { 
+  background: var(--red-bg);
+  border-color: rgba(255, 60, 60, 0.3);
+  color: var(--red); 
+}
 
-.bookmaker-balances {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+.bookmaker-card__divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 -16px 16px -16px;
 }
-.bookmaker-balance-box {
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-}
-.bookmaker-balance-box .label {
-  font-size: 9px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 4px;
-}
+
 .bookmaker-balance-input {
   width: 100%;
   background: transparent;
   border: none;
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 800;
   font-family: var(--mono);
   outline: none;
   padding: 0;
   box-sizing: border-box;
-  color: var(--green);
+}
+.bookmaker-balance-input:focus {
+  background: var(--surface);
+  border-radius: 4px;
+}
+
+.bookmaker-url-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.bookmaker-url-row svg {
+  flex-shrink: 0;
+}
+.url-input-clean {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-family: var(--font);
+  flex: 1;
+  outline: none;
+  padding: 0;
+}
+.url-input-clean:focus {
+  color: var(--text);
+}
+.external-link-btn {
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.external-link-btn:hover {
+  color: var(--text);
 }
 
 .bookmaker-exposed {
@@ -1602,4 +1667,175 @@ textarea {
   
   .mini-card .label { font-size: 11px; }
   .mini-card .value { font-size: 20px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOGIN TRACKER
+   ═══════════════════════════════════════════════════════════════ */
+
+.login-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-progress-bar {
+  height: 4px;
+  background: var(--surface);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.login-progress-fill {
+  height: 100%;
+  background: var(--green);
+  width: 0;
+  transition: width 0.3s ease;
+}
+
+.login-kanban {
+  display: flex;
+  gap: 16px;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .login-kanban {
+    flex-direction: row;
+  }
+}
+
+.login-column {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-column__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid;
+  margin-bottom: 4px;
+}
+
+.login-column__title {
+  font-weight: 800;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.login-column__count {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.login-column__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 100px;
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.login-card:hover {
+  border-color: var(--border-light);
+  transform: translateY(-1px);
+}
+
+.login-card--pending {
+  border-left: 3px solid transparent;
+}
+
+.login-card--logged {
+  border-left: 3px solid var(--green);
+}
+
+.login-card__content {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+}
+
+.login-card__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-card__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.login-card__name {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.login-card__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-card__time {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-card__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  border-left: 1px solid var(--border);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.login-card__link:hover {
+  background: var(--card2);
+  color: var(--text);
+}
+
+.login-footer {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
 }

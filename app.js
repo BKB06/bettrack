@@ -8,18 +8,110 @@ const DB_KEY = 'bettracker_db';
 const defaultDb = {
   mercadoPago: 90.21,
   bookmakers: [
-    { id: '1', name: 'Betano', color: '#ff3c3c', sportsBalance: 0.16, casinoBalance: 0.05 },
-    { id: '2', name: 'Bet365', color: '#00e87a', sportsBalance: 0, casinoBalance: 0 }
+    { id: '1', name: 'Betano', color: '#ff3c3c', balance: 0.21 },
+    { id: '2', name: 'Bet365', color: '#00e87a', balance: 0 }
   ],
   bets: [],
-  cashflow: []
+  cashflow: [],
+  dailyLogins: { date: '', logins: {} }
 };
 
 // ─── DB FUNCTIONS ──────────────────────────────────────────────
 
 function loadDb() {
   const data = localStorage.getItem(DB_KEY);
-  return data ? JSON.parse(data) : { ...defaultDb };
+  let parsed = {};
+  if (data) {
+    try {
+      parsed = JSON.parse(data);
+    } catch (e) {
+      console.error("BetTracker: Corrupted local storage data. Falling back to defaults.", e);
+      parsed = {};
+    }
+  }
+  let db = { ...defaultDb, ...parsed };
+  db.mercadoPago = Number(db.mercadoPago) || 0;
+  
+  // Ensure dailyLogins exists
+  if (!db.dailyLogins) {
+    db.dailyLogins = { date: '', logins: {} };
+  }
+  
+  // Reset dailyLogins if it's a new day
+  const today = new Date();
+  const localToday = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  if (db.dailyLogins.date !== localToday) {
+    db.dailyLogins = { date: localToday, logins: {} };
+  }
+
+  let dbChanged = false;
+
+  // Sanitize arrays to prevent null pointer exceptions
+  if (!Array.isArray(db.bookmakers)) {
+    db.bookmakers = [];
+    dbChanged = true;
+  }
+  const originalBkLength = db.bookmakers.length;
+  db.bookmakers = db.bookmakers.filter(bk => bk !== null && bk !== undefined);
+  if (db.bookmakers.length !== originalBkLength) {
+    dbChanged = true;
+  }
+
+  if (!Array.isArray(db.bets)) {
+    db.bets = [];
+    dbChanged = true;
+  }
+  const originalBetsLength = db.bets.length;
+  db.bets = db.bets.filter(b => b !== null && b !== undefined);
+  if (db.bets.length !== originalBetsLength) {
+    dbChanged = true;
+  }
+
+  if (!Array.isArray(db.cashflow)) {
+    db.cashflow = [];
+    dbChanged = true;
+  }
+  const originalCashflowLength = db.cashflow.length;
+  db.cashflow = db.cashflow.filter(c => c !== null && c !== undefined);
+  if (db.cashflow.length !== originalCashflowLength) {
+    dbChanged = true;
+  }
+
+  // Sanitize and migrate bookmakers
+  if (db.bookmakers.length > 0) {
+    db.bookmakers.forEach(bk => {
+      if (bk.sportsBalance !== undefined || bk.casinoBalance !== undefined) {
+        bk.balance = (Number(bk.sportsBalance) || 0) + (Number(bk.casinoBalance) || 0);
+        delete bk.sportsBalance;
+        delete bk.casinoBalance;
+        dbChanged = true;
+      }
+      if (bk.balance !== undefined) {
+        bk.balance = Number(bk.balance) || 0;
+      } else {
+        bk.balance = 0;
+      }
+    });
+  }
+
+  // Normalize dates to YYYY-MM-DD to avoid issues with old formats (like DD/MM/YYYY)
+  if (db.bets) {
+    db.bets.forEach(b => {
+      if (b.date && b.date.includes('/')) {
+        const parts = b.date.split('/');
+        if (parts.length === 3) {
+          b.date = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+          dbChanged = true;
+        }
+      }
+    });
+  }
+
+  if (dbChanged) {
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+  }
+  
+  return db;
 }
 
 function saveDb(db) {
@@ -37,6 +129,19 @@ function generateId() {
   return Math.random().toString(36).substr(2, 9);
 }
 
+function getDefaultBookmakerUrl(name) {
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes('betano')) return 'https://br.betano.com';
+  if (lowerName.includes('bet365')) return 'https://www.bet365.com';
+  if (lowerName.includes('pinnacle')) return 'https://www.pinnacle.com';
+  if (lowerName.includes('kto')) return 'https://www.kto.com';
+  if (lowerName.includes('betfair')) return 'https://www.betfair.com';
+  if (lowerName.includes('sportingbet')) return 'https://sports.sportingbet.com';
+  if (lowerName.includes('1xbet')) return 'https://1xbet.com';
+  if (lowerName.includes('estrelabet') || lowerName.includes('estrela bet')) return 'https://estrelabet.com';
+  return '';
+}
+
 // ─── BUSINESS LOGIC ────────────────────────────────────────────
 
 function calculateExposed(db) {
@@ -47,10 +152,23 @@ function calculateExposed(db) {
 
 function calculatePatrimonio(db) {
   const mp = Number(db.mercadoPago) || 0;
-  const sports = db.bookmakers.reduce((sum, bk) => sum + Number(bk.sportsBalance), 0);
-  const casino = db.bookmakers.reduce((sum, bk) => sum + Number(bk.casinoBalance), 0);
+  const bkTotal = db.bookmakers.reduce((sum, bk) => sum + Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0)), 0);
   const exposed = calculateExposed(db);
-  return mp + sports + casino + exposed;
+  return mp + bkTotal + exposed;
+}
+
+function getTodayLogins(db) {
+  return db.dailyLogins.logins;
+}
+
+function markLogin(db, bookmakerId) {
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  db.dailyLogins.logins[bookmakerId] = time;
+}
+
+function unmarkLogin(db, bookmakerId) {
+  delete db.dailyLogins.logins[bookmakerId];
 }
 
 // ─── GLOBAL STATS CALCULATIONS ─────────────────────────────────
@@ -112,12 +230,22 @@ function renderGlobalCalendar() {
   // Group bets by date
   const dailyProfit = {};
   db.bets.filter(b => b.status !== 'pending').forEach(b => {
-    const bDate = new Date(b.date);
-    if (bDate.getFullYear() === year && bDate.getMonth() === month) {
+    let dStr = b.date ? b.date.trim() : '';
+    if (dStr.includes('/')) {
+       const p = dStr.split('/');
+       if (p.length === 3) dStr = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+    }
+    if (!dStr) return;
+
+    // For year and month, it's safer to just split the string
+    const bYear = parseInt(dStr.split('-')[0]);
+    const bMonth = parseInt(dStr.split('-')[1]) - 1;
+    
+    if (bYear === year && bMonth === month) {
       monthStaked += b.stake;
       monthPnL += b.profit;
     }
-    const key = b.date;
+    const key = dStr;
     if (!dailyProfit[key]) dailyProfit[key] = 0;
     dailyProfit[key] += b.profit;
   });
@@ -153,7 +281,7 @@ function renderGlobalCalendar() {
         pnlHtml = `<div class="cal-cell__pnl" style="color:var(--muted)">0</div>`;
       }
     }
-    grid.innerHTML += `<div class="${cellClass}">${i}${pnlHtml}</div>`;
+    grid.innerHTML += `<div class="${cellClass}" style="cursor:pointer;" onclick="location.href='historico.html?date=${dateStr}'">${i}${pnlHtml}</div>`;
   }
 }
 
@@ -180,7 +308,7 @@ function updateGlobalUI() {
   const sidebarEl = document.getElementById('global-sidebar');
   if (sidebarEl) {
     let bkListHtml = db.bookmakers.map(bk => {
-      const total = Number(bk.sportsBalance) + Number(bk.casinoBalance);
+      const total = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0));
       return `<div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:${bk.color}"></div> ${bk.name}</span> <span class="value">${formatMoney(total)}</span></div>`;
     }).join('');
 
@@ -323,7 +451,7 @@ function renderShell() {
   const sidebarEl = document.getElementById('global-sidebar');
   if (sidebarEl) {
     let bkListHtml = db.bookmakers.map(bk => {
-      const total = Number(bk.sportsBalance) + Number(bk.casinoBalance);
+      const total = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0));
       return `<div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:${bk.color}"></div> ${bk.name}</span> <span class="value">${formatMoney(total)}</span></div>`;
     }).join('');
 
@@ -333,6 +461,7 @@ function renderShell() {
         <a href="historico.html" class="desktop-nav-item ${currentPage === 'historico.html' ? 'active' : ''}">≡ Histórico</a>
         <a href="fundos.html" class="desktop-nav-item ${currentPage === 'fundos.html' ? 'active' : ''}">⇄ Transferência</a>
         <a href="casas.html" class="desktop-nav-item ${currentPage === 'casas.html' ? 'active' : ''}">◈ Casas</a>
+        <a href="logins.html" class="desktop-nav-item ${currentPage === 'logins.html' ? 'active' : ''}">✓ Logins</a>
         <a href="relatorio.html" class="desktop-nav-item ${currentPage === 'relatorio.html' ? 'active' : ''}">↗ Relatório</a>
       </nav>
 
@@ -376,6 +505,10 @@ function renderShell() {
       <button class="mobile-nav-item ${currentPage === 'relatorio.html' ? 'active' : ''}" onclick="location.href='relatorio.html'">
         <span class="mobile-nav-item__icon">↗</span>
         <span class="mobile-nav-item__text">Relatório</span>
+      </button>
+      <button class="mobile-nav-item ${currentPage === 'logins.html' ? 'active' : ''}" onclick="location.href='logins.html'">
+        <span class="mobile-nav-item__icon">✓</span>
+        <span class="mobile-nav-item__text">Logins</span>
       </button>
     `;
   }
@@ -431,8 +564,10 @@ window.addEventListener('storage', (e) => {
       bkSelect.innerHTML = '';
       db.bookmakers.forEach(bk => {
         const opt = document.createElement('option');
-        opt.value = bk.id;
-        opt.textContent = `${bk.name} (Esportes: R$ ${bk.sportsBalance.toFixed(2)})`;
+        if (bk) {
+          opt.value = bk.id;
+          opt.textContent = `${bk.name} (Saldo: R$ ${Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0)).toFixed(2)})`;
+        }
         bkSelect.appendChild(opt);
       });
       if (currentSelected) bkSelect.value = currentSelected;

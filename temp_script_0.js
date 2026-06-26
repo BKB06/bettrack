@@ -1,232 +1,137 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BetTracker - Nova Aposta</title>
-  <link rel="stylesheet" href="styles.css?v=5">
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-</head>
-<body>
-  <div class="app-wrapper">
-    <div id="global-topbar"></div>
-    <div class="app-body" id="app-body">
-      <aside class="desktop-sidebar" id="global-sidebar"></aside>
-      
-      <main class="app-main desktop-main mobile-main" id="app-main">
-      <div style="margin-bottom: 16px;">
-        <p class="eyebrow">NOVA</p>
-        <h1 class="page-title">Registrar Aposta</h1>
-      </div>
 
-      <div class="card card--dashed" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <div>
-          <div style="color: var(--green); font-weight: 700; font-size: 15px; display:flex; align-items:center; gap:6px;">📸 Importar Cupom</div>
-          <div style="color: var(--muted); font-size: 12px; margin-top: 4px;">Envie um print e a IA preenche automaticamente</div>
-        </div>
-        <input type="file" id="ocr-upload" accept="image/*" style="display: none;">
-        <button type="button" id="btn-import-ocr" class="btn btn--ghost" style="color: var(--green); border-color: var(--green);">Selecionar</button>
-      </div>
-
-      <form id="new-bet-form" class="card">
-        <div class="field">
-          <label class="field-label">Casa de Apostas</label>
-          <select class="select" id="bet-bookmaker" required></select>
-        </div>
-
-        <div class="field">
-          <label class="field-label">Categoria</label>
-          <select class="select" id="bet-category" required>
-            <option value="NBA">NBA</option>
-            <option value="Futebol">Futebol</option>
-            <option value="Outros">Outros</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="field-label">Evento / Descrição</label>
-          <input type="text" class="input" id="bet-event" placeholder="Ex: Lakers vs Warriors — Moneyline Lakers" required>
-        </div>
-
-        <div class="field-grid-2">
-          <div class="field">
-            <label class="field-label">Odd</label>
-            <input type="number" step="0.01" class="input" id="bet-odd" placeholder="Ex: 2.10" required>
-          </div>
-          <div class="field">
-            <label class="field-label">Valor (R$)</label>
-            <input type="number" step="0.01" class="input" id="bet-stake" placeholder="Ex: 50.00" required>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="field-label">Data</label>
-          <input type="date" class="input" id="bet-date" required>
-        </div>
-
-        <div class="field">
-          <label class="field-label" style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="bet-freebet" style="width: auto; margin:0; cursor:pointer;">
-            <span style="font-weight: 600;">Aposta Feita com Freebet</span>
-          </label>
-          <div style="font-size:12px; color:var(--muted); margin-top:4px; margin-left: 21px;">O valor desta aposta não será descontado da banca. Se ganhar, o valor da aposto não é somado aos lucros.</div>
-        </div>
-
-        <div id="feedback-container"></div>
-
-        <button type="submit" class="btn btn--primary btn--full" id="btn-submit" style="margin-top: 12px;">
-          + Registrar Aposta
-        </button>
-      </form>
-      </main>
-
-      <aside class="desktop-right" id="global-right-panel"></aside>
-    </div>
-    <nav class="mobile-nav" id="global-mobile-nav"></nav>
-  </div>
-
-  <script src="app.js?v=5"></script>
-  <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const db = loadDb();
-      const bkSelect = document.getElementById('bet-bookmaker');
-      const oddInput = document.getElementById('bet-odd');
-      const stakeInput = document.getElementById('bet-stake');
-      const feedbackContainer = document.getElementById('feedback-container');
-      const btnSubmit = document.getElementById('btn-submit');
-      const form = document.getElementById('new-bet-form');
+      try {
+        const db = loadDb();
+        const bkSelect = document.getElementById('bet-bookmaker');
+        const oddInput = document.getElementById('bet-odd');
+        const stakeInput = document.getElementById('bet-stake');
+        const feedbackContainer = document.getElementById('feedback-container');
+        const btnSubmit = document.getElementById('btn-submit');
+        const form = document.getElementById('new-bet-form');
 
-      // Set today's date
-      document.getElementById('bet-date').valueAsDate = new Date();
+        // Set today's date
+        const today = new Date();
+        const localToday = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+        document.getElementById('bet-date').value = localToday;
 
-      // Populate bookmakers
-      if (db.bookmakers.length === 0) {
-        bkSelect.innerHTML = '<option value="">Nenhuma casa cadastrada</option>';
-      } else {
-        db.bookmakers.forEach(bk => {
-          const opt = document.createElement('option');
-          opt.value = bk.id;
-          const totalBalance = bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0);
-          opt.textContent = `${bk.name} (Saldo: R$ ${totalBalance.toFixed(2)})`;
-          bkSelect.appendChild(opt);
-        });
-      }
-
-      function updateFeedback() {
-        const odd = parseFloat(oddInput.value.replace(',', '.')) || 0;
-        const stake = parseFloat(stakeInput.value.replace(',', '.')) || 0;
-        const bkId = bkSelect.value;
-        const bk = db.bookmakers.find(b => b.id === bkId);
-        const isFreebet = document.getElementById('bet-freebet').checked;
-
-        if (!bk || stake <= 0) {
-          feedbackContainer.innerHTML = '';
-          btnSubmit.disabled = false;
-          return;
-        }
-
-        const balance = bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0);
-        
-        // Use epsilon para evitar erro de precisão de ponto flutuante
-        if (!isFreebet && stake > balance + 0.0001) {
-          feedbackContainer.innerHTML = `
-            <div class="feedback-box feedback-box--error">
-              <div class="feedback-row">
-                <span class="feedback-row__label">Saldo Insuficiente</span>
-                <span class="feedback-row__value">Em ${bk.name}</span>
-              </div>
-              <div class="feedback-row">
-                <span class="feedback-row__label">Saldo disponível:</span>
-                <span class="feedback-row__value" style="color:var(--text)">${formatMoney(balance)}</span>
-              </div>
-            </div>
-          `;
-          btnSubmit.disabled = true;
-        } else if (odd > 1) {
-          const retorno = isFreebet ? (stake * odd) - stake : stake * odd;
-          const lucro = isFreebet ? retorno : retorno - stake;
-          feedbackContainer.innerHTML = `
-            <div class="feedback-box feedback-box--ok">
-              <div class="feedback-row">
-                <span class="feedback-row__label">Retorno Potencial</span>
-                <span class="feedback-row__value" style="color:var(--text)">${formatMoney(retorno)}</span>
-              </div>
-              <div class="feedback-row">
-                <span class="feedback-row__label">Lucro Limpo</span>
-                <span class="feedback-row__value">${formatMoney(lucro)}</span>
-              </div>
-            </div>
-          `;
-          btnSubmit.disabled = false;
+        // Populate bookmakers
+        if (!db || !Array.isArray(db.bookmakers) || db.bookmakers.length === 0) {
+          bkSelect.innerHTML = '<option value="">Nenhuma casa cadastrada</option>';
         } else {
-          feedbackContainer.innerHTML = '';
-          btnSubmit.disabled = false;
-        }
-      }
-
-      bkSelect.addEventListener('change', updateFeedback);
-      oddInput.addEventListener('input', updateFeedback);
-      stakeInput.addEventListener('input', updateFeedback);
-      document.getElementById('bet-freebet').addEventListener('change', updateFeedback);
-
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        
-        const bkId = bkSelect.value;
-        const stake = parseFloat(stakeInput.value.replace(',', '.')) || 0;
-        const isFreebet = document.getElementById('bet-freebet').checked;
-        const bkIndex = db.bookmakers.findIndex(b => b.id === bkId);
-        
-        if (bkIndex === -1) return;
-        
-        let bkRef = db.bookmakers[bkIndex];
-        
-        let totalBalance = bkRef.balance !== undefined ? bkRef.balance : (bkRef.sportsBalance || 0);
-        
-        if (!isFreebet && stake > totalBalance + 0.0001) {
-           alert('Saldo insuficiente na casa de apostas selecionada! Atualize seu banco/fundos primeiro ou altere o valor da aposta.');
-           return;
+          db.bookmakers.forEach(bk => {
+            if (!bk) return; // Skip if null
+            const opt = document.createElement('option');
+            opt.value = bk.id || '';
+            const totalBalance = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0)) || 0;
+            opt.textContent = `${bk.name || 'Desconhecida'} (Saldo: R$ ${totalBalance.toFixed(2)})`;
+            bkSelect.appendChild(opt);
+          });
         }
 
-        // Deduct stake if not freebet (only from sportsBalance)
-        if (!isFreebet) {
-          bkRef.sportsBalance -= stake;
-          if (bkRef.sportsBalance < 0) bkRef.sportsBalance = 0;
+        function updateFeedback() {
+          const odd = parseFloat(oddInput.value.replace(',', '.')) || 0;
+          const stake = parseFloat(stakeInput.value.replace(',', '.')) || 0;
+          const bkId = bkSelect.value;
+          const bk = db.bookmakers.find(b => b.id === bkId);
+          const isFreebet = document.getElementById('bet-freebet').checked;
+
+          if (!bk || stake <= 0) {
+            feedbackContainer.innerHTML = '';
+            btnSubmit.disabled = false;
+            return;
+          }
+
+          const balance = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0)) || 0;
+          
+          // Use epsilon para evitar erro de precisão de ponto flutuante
+          if (!isFreebet && stake > balance + 0.0001) {
+            feedbackContainer.innerHTML = `
+              <div class="feedback-box feedback-box--error">
+                <div class="feedback-row">
+                  <span class="feedback-row__label">Saldo Insuficiente</span>
+                  <span class="feedback-row__value">Em ${bk.name}</span>
+                </div>
+                <div class="feedback-row">
+                  <span class="feedback-row__label">Saldo disponível:</span>
+                  <span class="feedback-row__value" style="color:var(--red);">R$ ${balance.toFixed(2)}</span>
+                </div>
+              </div>
+            `;
+            btnSubmit.disabled = true;
+          } else {
+            feedbackContainer.innerHTML = '';
+            btnSubmit.disabled = false;
+          }
         }
 
-        // Add bet
-        db.bets.push({
-          id: generateId(),
-          bookmakerId: bkId,
-          category: document.getElementById('bet-category').value,
-          event: document.getElementById('bet-event').value,
-          odd: parseFloat(oddInput.value.replace(',', '.')) || 0,
-          stake: stake,
-          isFreebet: isFreebet,
-          date: document.getElementById('bet-date').value,
-          status: 'pending',
-          profit: 0
-        });
+        if(bkSelect) bkSelect.addEventListener('change', updateFeedback);
+        if(oddInput) oddInput.addEventListener('input', updateFeedback);
+        if(stakeInput) stakeInput.addEventListener('input', updateFeedback);
+        const fbCheck = document.getElementById('bet-freebet');
+        if (fbCheck) fbCheck.addEventListener('change', updateFeedback);
 
-        // Ensure rounding for storage
-        bkRef.sportsBalance = Math.max(0, parseFloat(bkRef.sportsBalance.toFixed(2)));
+        if(form) {
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const bkId = bkSelect.value;
+            const bkRef = db.bookmakers.find(b => b.id === bkId);
+            const isFreebet = fbCheck ? fbCheck.checked : false;
+            const stakeVal = parseFloat(stakeInput.value.replace(',', '.')) || 0;
+            const oddVal = parseFloat(oddInput.value.replace(',', '.')) || 0;
+            const category = document.getElementById('bet-category').value;
 
-        saveDb(db);
-        alert('Aposta registrada com sucesso!');
-        form.reset();
-        document.getElementById('bet-date').valueAsDate = new Date();
-        
-        // Refresh dropdown text
-        bkSelect.innerHTML = '';
-        db.bookmakers.forEach(bk => {
-          const opt = document.createElement('option');
-          opt.value = bk.id;
-          const totalBalance = bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0);
-          opt.textContent = `${bk.name} (Saldo: R$ ${totalBalance.toFixed(2)})`;
-          bkSelect.appendChild(opt);
-        });
-        updateFeedback();
-      });
+            if (!bkRef) {
+              alert('Por favor selecione uma casa de apostas válida.');
+              return;
+            }
+
+            const currentBal = Number(bkRef.balance !== undefined ? bkRef.balance : (bkRef.sportsBalance || 0)) || 0;
+            if (!isFreebet && stakeVal > currentBal + 0.0001) {
+              alert('Saldo insuficiente na casa de apostas selecionada! Atualize seu banco/fundos primeiro ou altere o valor da aposta.');
+              return;
+            }
+
+            db.bets.push({
+              id: generateId(),
+              bookmakerId: bkId,
+              stake: stakeVal,
+              odd: oddVal,
+              category: category,
+              date: document.getElementById('bet-date').value,
+              status: 'pending',
+              profit: 0,
+              isFreebet: isFreebet
+            });
+
+            if (!isFreebet) {
+              bkRef.balance = currentBal - stakeVal;
+              bkRef.balance = Math.max(0, Number(bkRef.balance).toFixed(2));
+            }
+
+            saveDb(db);
+            alert('Aposta Registrada com Sucesso!');
+            
+            const nowLocal = new Date();
+            document.getElementById('bet-date').value = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth()+1).padStart(2,'0')}-${String(nowLocal.getDate()).padStart(2,'0')}`;
+            stakeInput.value = '';
+            oddInput.value = '';
+            if (fbCheck) fbCheck.checked = false;
+            updateFeedback();
+
+            // Refresh bk options to show new balance
+            bkSelect.innerHTML = '';
+            db.bookmakers.forEach(bk => {
+              if (!bk) return;
+              const opt = document.createElement('option');
+              opt.value = bk.id || '';
+              const tb = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0)) || 0;
+              opt.textContent = `${bk.name || 'Desconhecida'} (Saldo: R$ ${tb.toFixed(2)})`;
+              bkSelect.appendChild(opt);
+            });
+            bkSelect.value = bkId;
+          });
+        }
 
       // --- OCR LOGIC ---
       const btnOcr = document.getElementById('btn-import-ocr');
@@ -495,7 +400,13 @@
           }
         }
       });
+      
+      } catch (e) {
+        const bkSelect = document.getElementById('bet-bookmaker');
+        if (bkSelect) {
+          bkSelect.innerHTML = `<option value="">ERRO: ${e.message}</option>`;
+        }
+        console.error("BetTracker Error:", e);
+      }
     });
-  </script>
-</body>
-</html>
+  
