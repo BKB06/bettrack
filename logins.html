@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BetTracker - Check-in de Contas</title>
+  <link rel="stylesheet" href="styles.css?v=5">
+  <style>
+    /* ─── LOGINS PAGE HEADER ─────────────────────────────────────── */
+    .logins-header {
+      background: linear-gradient(135deg, var(--card) 0%, var(--card2) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+    .logins-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .logins-header-title-area {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logins-header-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--green-bg);
+      border: 1px solid var(--green-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .logins-header-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .logins-header-subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .logins-header-date {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ─── STATS ROW ──────────────────────────────────────────────── */
+    .logins-stats-row {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 0;
+    }
+    .logins-stat-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logins-stat-card .stat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .logins-stat-card .stat-icon.progress {
+      background: transparent;
+      position: relative;
+    }
+    .logins-stat-card .stat-icon.pending {
+      background: var(--blue-bg);
+      border: 1px solid var(--blue-border);
+      color: var(--blue);
+    }
+    .logins-stat-card .stat-icon.done {
+      background: var(--green-bg);
+      border: 1px solid var(--green-border);
+      color: var(--green);
+    }
+    .logins-stat-card .stat-icon.clock {
+      background: var(--gold-bg);
+      border: 1px solid var(--gold-border);
+      color: var(--gold);
+    }
+    .logins-stat-card .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .logins-stat-card .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      font-family: var(--mono);
+    }
+    .logins-stat-card .stat-value.small {
+      font-size: 14px;
+    }
+    .progress-bar-mini {
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .progress-bar-mini-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00e87a, #00c264);
+      border-radius: 99px;
+      transition: width 0.6s ease;
+    }
+
+    /* ─── TOOLBAR ─────────────────────────────────────────────────── */
+    .logins-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .logins-search {
+      flex: 1;
+      min-width: 200px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .logins-search::placeholder {
+      color: var(--muted);
+    }
+    .logins-search:focus {
+      border-color: var(--blue);
+    }
+    .logins-filter-tabs {
+      display: flex;
+      gap: 6px;
+    }
+    .logins-filter-tab {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 16px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .logins-filter-tab:hover {
+      color: var(--text);
+      border-color: var(--border-light);
+    }
+    .logins-filter-tab.active {
+      background: rgba(77,168,255,0.12);
+      border-color: var(--blue-border);
+      color: var(--blue);
+    }
+    .logins-filter-tab .tab-badge {
+      font-size: 11px;
+      padding: 1px 7px;
+      border-radius: 99px;
+      font-weight: 700;
+      font-family: var(--mono);
+    }
+    .logins-filter-tab .tab-badge.yellow {
+      background: rgba(234, 179, 8, 0.15);
+      color: #eab308;
+    }
+    .logins-filter-tab .tab-badge.green {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+    }
+    .logins-filter-tab .tab-badge.blue {
+      background: rgba(77, 168, 255, 0.15);
+      color: var(--blue);
+    }
+    .logins-sort {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 14px;
+      color: var(--muted);
+      font-size: 13px;
+      font-family: var(--font);
+      cursor: pointer;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .logins-sort:focus {
+      border-color: var(--blue);
+    }
+
+    /* ─── SPLIT COLUMNS ──────────────────────────────────────────── */
+    .logins-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 900px) {
+      .logins-split {
+        grid-template-columns: 1fr;
+      }
+      .logins-stats-row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 500px) {
+      .logins-stats-row {
+        grid-template-columns: 1fr;
+      }
+      .logins-header-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+    }
+
+    /* ─── KANBAN COLUMNS ─────────────────────────────────────────── */
+    .kanban-col {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .kanban-col-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .kanban-col-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .kanban-badge {
+      background: rgba(234, 179, 8, 0.15);
+      color: #eab308;
+      font-size: 12px;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-family: var(--mono);
+    }
+    .kanban-badge.done {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+    }
+
+    .kanban-items-list {
+      max-height: 520px;
+      overflow-y: auto;
+    }
+    .kanban-items-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    .kanban-items-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .kanban-items-list::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 99px;
+    }
+
+    .kanban-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+    }
+    .kanban-item:last-child {
+      border-bottom: none;
+    }
+    .kanban-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .kanban-item-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .kanban-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #eab308;
+      flex-shrink: 0;
+    }
+    .kanban-dot.done {
+      width: 20px;
+      height: 20px;
+      background: var(--green-bg);
+      border: 1.5px solid var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .kanban-dot.done::after {
+      content: '✓';
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .kanban-item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .kanban-item-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .kanban-item-desc {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .kanban-item-time {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .btn-checkin {
+      background: rgba(234, 179, 8, 0.12);
+      color: #eab308;
+      border: 1px solid rgba(234, 179, 8, 0.35);
+      padding: 7px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-family: var(--font);
+    }
+    .btn-checkin:hover {
+      background: rgba(234, 179, 8, 0.22);
+      color: #facc15;
+      transform: translateX(2px);
+    }
+    .btn-undo {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 7px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-family: var(--font);
+    }
+    .btn-undo:hover {
+      background: rgba(255, 60, 60, 0.08);
+      color: var(--red);
+      border-color: var(--red-border);
+    }
+    .btn-checkall {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font);
+      transition: color 0.2s;
+    }
+    .btn-checkall:hover {
+      color: var(--text);
+    }
+    .btn-viewall {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      border-top: 1px solid var(--border);
+      padding: 14px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: var(--font);
+      width: 100%;
+      transition: all 0.2s;
+    }
+    .btn-viewall:hover {
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+    }
+    .btn-viewall-link {
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: color 0.2s;
+      background: none;
+      border: none;
+      font-family: var(--font);
+    }
+    .btn-viewall-link:hover {
+      color: var(--green);
+    }
+
+    /* ─── EMPTY STATE ────────────────────────────────────────────── */
+    .logins-empty {
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* ─── PROGRESS RING SVG ──────────────────────────────────────── */
+    .progress-ring-svg {
+      transform: rotate(-90deg);
+    }
+    .progress-ring-circle-bg {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 4;
+    }
+    .progress-ring-circle-fg {
+      fill: none;
+      stroke: var(--green);
+      stroke-width: 4;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.6s ease;
+    }
+    .progress-ring-text {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 800;
+      font-family: var(--mono);
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  
+  <div id="auth-loading" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text);">
+    <h2>Carregando...</h2>
+  </div>
+  <div id="login-screen" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg); z-index: 9998; display: none; flex-direction: column; justify-content: center; align-items: center; color: var(--text);">
+    <div style="font-size: 48px; margin-bottom: 16px;">🎯</div>
+    <h1 style="margin-bottom: 8px;">BetTracker</h1>
+    <p style="color: var(--muted); margin-bottom: 24px;">Faça login para acessar suas apostas na nuvem.</p>
+    <button class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
+      Entrar com Google
+    </button>
+  </div>
+
+  <div class="app-wrapper" id="main-app-wrapper" style="display: none;">
+    <div id="global-topbar"></div>
+    <div class="app-body" id="app-body">
+      <aside class="desktop-sidebar" id="global-sidebar"></aside>
+      
+      <main class="app-main desktop-main mobile-main" id="app-main">
+
+      <!-- HEADER -->
+      <div class="logins-header" id="logins-header">
+        <!-- JS fills this -->
+      </div>
+
+      <!-- TOOLBAR -->
+      <div class="logins-toolbar" id="logins-toolbar">
+        <!-- JS fills this -->
+      </div>
+
+      <!-- SPLIT COLUMNS -->
+      <div class="logins-split" id="logins-split">
+        <div id="kanban-pendentes" class="kanban-col"></div>
+        <div id="kanban-feitos" class="kanban-col"></div>
+      </div>
+
+      </main>
+
+      <aside class="desktop-right" id="global-right-panel"></aside>
+    </div>
+    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+  </div>
+
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <script src="app.js?v=11"></script>
+  <script>
+    // ─── STATE ────────────────────────────────────────────────────
+    let currentFilter = 'all'; // 'all', 'pending', 'done'
+    let searchQuery = '';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await window.authStateReady;
+      document.getElementById('auth-loading').style.display = 'none';
+      if (!user) {
+        document.getElementById('login-screen').style.display = 'flex';
+        return;
+      }
+      document.getElementById('main-app-wrapper').style.display = '';
+      
+      let db = await loadDb();
+      const pendentesEl = document.getElementById('kanban-pendentes');
+      const feitosEl = document.getElementById('kanban-feitos');
+
+      // ─── doLogin: only records time if NOT already logged today ──
+      window.doLogin = async (id) => {
+        db = await loadDb();
+        // Only set time if not already logged (preserves original login time)
+        if (!db.dailyLogins.logins[id]) {
+          const now = new Date();
+          const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          db.dailyLogins.logins[id] = time;
+          await saveDb(db);
+        }
+        renderLogins();
+      };
+
+      window.undoLogin = async (id) => {
+        db = await loadDb();
+        delete db.dailyLogins.logins[id];
+        await saveDb(db);
+        renderLogins();
+      };
+
+      window.doAllLogins = async () => {
+        db = await loadDb();
+        const now = new Date();
+        const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        db.bookmakers.forEach(bk => {
+          // Only set if not already logged
+          if (!db.dailyLogins.logins[bk.id]) {
+            db.dailyLogins.logins[bk.id] = time;
+          }
+        });
+        await saveDb(db);
+        renderLogins();
+      };
+
+      window.setFilter = (filter) => {
+        currentFilter = filter;
+        renderLogins();
+      };
+
+      window.setSearch = (val) => {
+        searchQuery = val.toLowerCase().trim();
+        renderLists();
+      };
+
+      function getFamily(name) {
+        return name.toLowerCase()
+          .replace(/[-\s]*(mãe|mae|pai|eu|minha|filho|filha)$/i, '')
+          .replace(/[-\s]+$/, '')
+          .trim();
+      }
+
+      function sortByFamily(list) {
+        return list.slice().sort((a, b) => {
+          const fa = getFamily(a.name);
+          const fb = getFamily(b.name);
+          if (fa < fb) return -1;
+          if (fa > fb) return 1;
+          return a.name.localeCompare(b.name);
+        });
+      }
+
+      // Cached data for use by renderLists without re-parsing
+      let _pendentes = [];
+      let _feitos = [];
+
+      function renderLogins() {
+        if (db.bookmakers.length === 0) {
+          document.getElementById('logins-header').innerHTML = '';
+          document.getElementById('logins-toolbar').innerHTML = '';
+          pendentesEl.innerHTML = '<div class="logins-empty">Nenhuma casa cadastrada. Adicione casas na página de Casas.</div>';
+          feitosEl.style.display = 'none';
+          return;
+        }
+
+        _pendentes = [];
+        _feitos = [];
+
+        db.bookmakers.forEach(bk => {
+          const loggedTime = db.dailyLogins.logins[bk.id];
+          if (loggedTime) {
+            _feitos.push({ ...bk, loggedTime });
+          } else {
+            _pendentes.push(bk);
+          }
+        });
+
+        const totalAccounts = db.bookmakers.length;
+        const loggedCount = _feitos.length;
+        const percent = Math.round((loggedCount / totalAccounts) * 100);
+
+        // Find last check-in time
+        let lastCheckin = '--:--';
+        let lastCheckinAgo = '';
+        if (loggedCount > 0) {
+          const times = Object.values(db.dailyLogins.logins);
+          times.sort();
+          lastCheckin = times[times.length - 1];
+          const now = new Date();
+          const [lh, lm] = lastCheckin.split(':').map(Number);
+          const diffMin = Math.floor((now.getHours() * 60 + now.getMinutes()) - (lh * 60 + lm));
+          if (diffMin <= 0) {
+            lastCheckinAgo = 'agora';
+          } else if (diffMin < 60) {
+            lastCheckinAgo = `há ${diffMin} min`;
+          } else {
+            lastCheckinAgo = `há ${Math.floor(diffMin / 60)}h ${diffMin % 60}min`;
+          }
+        }
+
+        // Get today's date formatted
+        const today = new Date();
+        const monthNames = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        const dateStr = `Hoje, ${today.getDate()} de ${monthNames[today.getMonth()]} de ${today.getFullYear()}`;
+
+        // ─── RENDER HEADER ──────────────────────────────────────
+        const circumference = 2 * Math.PI * 16;
+        const offset = circumference - (percent / 100) * circumference;
+
+        document.getElementById('logins-header').innerHTML = `
+          <div class="logins-header-top">
+            <div class="logins-header-title-area">
+              <div class="logins-header-icon">✓</div>
+              <div>
+                <div class="logins-header-title">Check-in de Contas</div>
+                <div class="logins-header-subtitle">Acompanhe e verifique suas casas de apostas diariamente</div>
+              </div>
+            </div>
+            <div class="logins-header-date">📅 ${dateStr}</div>
+          </div>
+
+          <div class="logins-stats-row">
+            <div class="logins-stat-card">
+              <div class="stat-icon progress" style="width:52px; height:52px;">
+                <svg class="progress-ring-svg" width="52" height="52" viewBox="0 0 36 36">
+                  <circle class="progress-ring-circle-bg" cx="18" cy="18" r="16" />
+                  <circle class="progress-ring-circle-fg" cx="18" cy="18" r="16" 
+                    stroke-dasharray="${circumference}" 
+                    stroke-dashoffset="${offset}" />
+                </svg>
+                <div class="progress-ring-text">${percent}%</div>
+              </div>
+              <div style="flex:1;">
+                <div style="font-weight:600; font-size:15px; color:var(--text); margin-bottom:2px;">Progresso de Hoje</div>
+                <div style="font-size:12px; color:var(--green);">${loggedCount} de ${totalAccounts} contas verificadas</div>
+                <div class="progress-bar-mini">
+                  <div class="progress-bar-mini-fill" style="width:${percent}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="logins-stat-card">
+              <div class="stat-icon pending">📋</div>
+              <div>
+                <div class="stat-label">Pendentes</div>
+                <div class="stat-value">${_pendentes.length}</div>
+                <div class="stat-label">contas</div>
+              </div>
+            </div>
+
+            <div class="logins-stat-card">
+              <div class="stat-icon done">✓</div>
+              <div>
+                <div class="stat-label">Feitos</div>
+                <div class="stat-value">${loggedCount}</div>
+                <div class="stat-label">contas</div>
+              </div>
+            </div>
+
+            <div class="logins-stat-card">
+              <div class="stat-icon clock">🕐</div>
+              <div>
+                <div class="stat-label">Último check-in</div>
+                <div class="stat-value">${lastCheckin}</div>
+                <div class="stat-label">${lastCheckinAgo}</div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // ─── RENDER TOOLBAR ─────────────────────────────────────
+        document.getElementById('logins-toolbar').innerHTML = `
+          <input type="text" id="logins-search-input" class="logins-search" placeholder="🔍 Buscar casa de apostas..." 
+                 oninput="setSearch(this.value)" value="">
+          <div class="logins-filter-tabs">
+            <button class="logins-filter-tab ${currentFilter === 'all' ? 'active' : ''}" onclick="setFilter('all')">
+              Todos <span class="tab-badge blue">${totalAccounts}</span>
+            </button>
+            <button class="logins-filter-tab ${currentFilter === 'pending' ? 'active' : ''}" onclick="setFilter('pending')">
+              Pendentes <span class="tab-badge yellow">${_pendentes.length}</span>
+            </button>
+            <button class="logins-filter-tab ${currentFilter === 'done' ? 'active' : ''}" onclick="setFilter('done')">
+              Feitos <span class="tab-badge green">${loggedCount}</span>
+            </button>
+          </div>
+        `;
+
+        // Now render the lists
+        renderLists();
+
+      }
+
+      // Renders only the kanban lists (called by search without rebuilding toolbar)
+      function renderLists() {
+        // Apply search filter
+        let filteredPendentes = sortByFamily(_pendentes);
+        let filteredFeitos = sortByFamily(_feitos);
+
+        if (searchQuery) {
+          filteredPendentes = filteredPendentes.filter(bk => bk.name.toLowerCase().includes(searchQuery));
+          filteredFeitos = filteredFeitos.filter(bk => bk.name.toLowerCase().includes(searchQuery));
+        }
+
+        // ─── RENDER COLUMNS ─────────────────────────────────────
+        const showPendentes = currentFilter === 'all' || currentFilter === 'pending';
+        const showFeitos = currentFilter === 'all' || currentFilter === 'done';
+
+        // Update grid based on filter
+        const splitEl = document.getElementById('logins-split');
+        if (currentFilter === 'all') {
+          splitEl.style.gridTemplateColumns = '1fr 1fr';
+        } else {
+          splitEl.style.gridTemplateColumns = '1fr';
+        }
+
+        // ─── PENDENTES ──────────────────────────────────────────
+        if (showPendentes && filteredPendentes.length > 0) {
+          let html = `
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">
+                PENDENTES <span class="kanban-badge">${filteredPendentes.length}</span>
+              </div>
+              <button class="btn-checkall" onclick="doAllLogins()">Fazer todos
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              </button>
+            </div>
+            <div class="kanban-items-list">
+          `;
+          filteredPendentes.forEach(bk => {
+            html += `
+              <div class="kanban-item">
+                <div class="kanban-item-left">
+                  <div class="kanban-dot"></div>
+                  <div class="kanban-item-info">
+                    <a href="${bk.url || getDefaultBookmakerUrl(bk.name)}" target="_blank" class="kanban-item-name" style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 6px;" onclick="doLogin('${bk.id}')">
+                      ${bk.name}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.4;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </a>
+                    <div class="kanban-item-desc">Pendente de acesso</div>
+                  </div>
+                </div>
+                <button class="btn-checkin" onclick="doLogin('${bk.id}')">Check-in &rarr;</button>
+              </div>
+            `;
+          });
+          html += '</div>';
+          pendentesEl.innerHTML = html;
+          pendentesEl.style.display = 'block';
+        } else if (showPendentes && filteredPendentes.length === 0 && _pendentes.length === 0) {
+          pendentesEl.innerHTML = `
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">
+                PENDENTES <span class="kanban-badge">0</span>
+              </div>
+            </div>
+            <div class="logins-empty" style="color:var(--green);">🎉 Todos os check-ins feitos!</div>
+          `;
+          pendentesEl.style.display = 'block';
+        } else if (!showPendentes) {
+          pendentesEl.style.display = 'none';
+        } else {
+          pendentesEl.innerHTML = `
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">
+                PENDENTES <span class="kanban-badge">0</span>
+              </div>
+            </div>
+            <div class="logins-empty">Nenhum resultado encontrado.</div>
+          `;
+          pendentesEl.style.display = 'block';
+        }
+
+        // ─── FEITOS ─────────────────────────────────────────────
+        if (showFeitos && filteredFeitos.length > 0) {
+          let html = `
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">
+                FEITAS HOJE <span class="kanban-badge done">${filteredFeitos.length}</span>
+              </div>
+              <button class="btn-viewall-link" onclick="setFilter('done')">Ver todas
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline></svg>
+              </button>
+            </div>
+            <div class="kanban-items-list">
+          `;
+          filteredFeitos.forEach(bk => {
+            html += `
+              <div class="kanban-item">
+                <div class="kanban-item-left">
+                  <div class="kanban-dot done"></div>
+                  <div class="kanban-item-info">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <a href="${bk.url || getDefaultBookmakerUrl(bk.name)}" target="_blank" class="kanban-item-name" style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                        ${bk.name}
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.4;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                      </a>
+                      <span class="kanban-item-time">${bk.loggedTime}</span>
+                    </div>
+                  </div>
+                </div>
+                <button class="btn-undo" onclick="undoLogin('${bk.id}')">Desfazer</button>
+              </div>
+            `;
+          });
+          html += '</div>';
+          feitosEl.innerHTML = html;
+          feitosEl.style.display = 'block';
+        } else if (showFeitos && filteredFeitos.length === 0 && _feitos.length === 0) {
+          feitosEl.innerHTML = `
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">
+                FEITAS HOJE <span class="kanban-badge done">0</span>
+              </div>
+            </div>
+            <div class="logins-empty">Nenhum check-in feito ainda.</div>
+          `;
+          feitosEl.style.display = 'block';
+        } else if (!showFeitos) {
+          feitosEl.style.display = 'none';
+        } else {
+          feitosEl.innerHTML = `
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">
+                FEITAS HOJE <span class="kanban-badge done">0</span>
+              </div>
+            </div>
+            <div class="logins-empty">Nenhum resultado encontrado.</div>
+          `;
+          feitosEl.style.display = 'block';
+        }
+
+        // Responsive: single column on mobile
+        if (window.innerWidth <= 900) {
+          splitEl.style.gridTemplateColumns = '1fr';
+        }
+      }
+
+      renderLogins();
+      updateGlobalUI();
+
+      // Re-render on resize for responsive behavior
+      window.addEventListener('resize', () => {
+        const splitEl = document.getElementById('logins-split');
+        if (window.innerWidth <= 900) {
+          splitEl.style.gridTemplateColumns = '1fr';
+        } else if (currentFilter === 'all') {
+          splitEl.style.gridTemplateColumns = '1fr 1fr';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
