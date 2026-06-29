@@ -4,10 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>BetTracker - Histórico</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
-  <div class="app-wrapper">
+  
+  <div id="auth-loading" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-body); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text);">
+    <h2>Carregando...</h2>
+  </div>
+  <div id="login-screen" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-body); z-index: 9998; display: none; flex-direction: column; justify-content: center; align-items: center; color: var(--text);">
+    <div style="font-size: 48px; margin-bottom: 16px;">🎯</div>
+    <h1 style="margin-bottom: 8px;">BetTracker</h1>
+    <p style="color: var(--muted); margin-bottom: 24px;">Faça login para acessar suas apostas na nuvem.</p>
+    <button class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"/></svg>
+      Entrar com Google
+    </button>
+  </div>
+
+  <div class="app-wrapper" id="main-app-wrapper" style="display: none;">
     <div id="global-topbar"></div>
     <div class="app-body" id="app-body">
       <aside class="desktop-sidebar" id="global-sidebar"></aside>
@@ -82,14 +96,41 @@
     <nav class="mobile-nav" id="global-mobile-nav"></nav>
   </div>
 
-  <script src="app.js?v=5"></script>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <script src="app.js?v=11"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      let db = loadDb();
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await window.authStateReady;
+      document.getElementById('auth-loading').style.display = 'none';
+      if (!user) {
+        document.getElementById('login-screen').style.display = 'flex';
+        return;
+      }
+      document.getElementById('main-app-wrapper').style.display = '';
+
+      let db = await loadDb();
       let currentDate = new Date();
       let activeFilter = 'pending';
       let currentPageNum = 1;
+      window.selectedDateFilter = null; // YYYY-MM-DD or null
       const ITEMS_PER_PAGE = 10;
+
+      // Helper to ensure date is YYYY-MM-DD
+      function normalizeDate(dStr) {
+        if (!dStr) return '';
+        dStr = dStr.trim();
+        if (dStr.includes('/')) {
+           const p = dStr.split('/');
+           if (p.length === 3) return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+        }
+        return dStr;
+      }
 
       function renderKPIs() {
         const wonBets = db.bets.filter(b => b.status === 'won');
@@ -106,7 +147,8 @@
         document.getElementById('kpi-max-loss').textContent = maxLoss ? formatMoney(maxLoss) : '-';
       }
 
-      function resolveBet(betId, result) {
+      async function resolveBet(betId, result) {
+        db = await loadDb();
         const betIndex = db.bets.findIndex(b => b.id === betId);
         if (betIndex === -1) return;
 
@@ -120,10 +162,10 @@
             
             if (bet.isFreebet) {
                 // Freebet: devolve APENAS o lucro
-                db.bookmakers[bkIndex].sportsBalance += bet.profit;
+                db.bookmakers[bkIndex].balance += bet.profit;
             } else {
                 // Return stake + profit to bookmaker
-                db.bookmakers[bkIndex].sportsBalance += (bet.stake + bet.profit);
+                db.bookmakers[bkIndex].balance += (bet.stake + bet.profit);
             }
           } else if (result === 'lost') {
             bet.status = 'lost';
@@ -138,16 +180,17 @@
             bet.status = 'void';
             if (!bet.isFreebet) {
                 // Return stake only if it wasn't a freebet
-                db.bookmakers[bkIndex].sportsBalance += bet.stake;
+                db.bookmakers[bkIndex].balance += bet.stake;
             }
           }
         }
         
-        saveDb(db);
+        await saveDb(db);
         refreshAll();
       }
 
-      function revertBet(betId) {
+      async function revertBet(betId) {
+        db = await loadDb();
         const betIndex = db.bets.findIndex(b => b.id === betId);
         if (betIndex === -1) return;
 
@@ -157,13 +200,13 @@
         if (bkIndex !== -1) {
           if (bet.status === 'won') {
             if (bet.isFreebet) {
-              db.bookmakers[bkIndex].sportsBalance -= bet.profit;
+              db.bookmakers[bkIndex].balance -= bet.profit;
             } else {
-              db.bookmakers[bkIndex].sportsBalance -= (bet.stake + bet.profit);
+              db.bookmakers[bkIndex].balance -= (bet.stake + bet.profit);
             }
           } else if (bet.status === 'void') {
             if (!bet.isFreebet) {
-              db.bookmakers[bkIndex].sportsBalance -= bet.stake;
+              db.bookmakers[bkIndex].balance -= bet.stake;
             }
           }
         }
@@ -171,7 +214,7 @@
         bet.status = 'pending';
         bet.profit = 0;
         
-        saveDb(db);
+        await saveDb(db);
         refreshAll();
       }
 
@@ -179,7 +222,7 @@
       window.revertBet = revertBet;
 
       // Remove bet
-      window.removeBet = (id) => {
+      window.removeBet = async (id) => {
         const betIndex = db.bets.findIndex(b => b.id === id);
         if (betIndex === -1) return;
         const bet = db.bets[betIndex];
@@ -193,8 +236,11 @@
 
         if(confirm(msg)) {
           // Revert its status to pending first so we undo wins/losses
-          revertBet(id);
+          await revertBet(id);
           
+          // db has been updated by revertBet calling loadDb(), but let's be safe
+          db = await loadDb();
+
           // Now it's pending. If it was not a freebet, refund the initial stake
           // We need to find the index again because revertBet saved/mutated db
           const updatedBetIndex = db.bets.findIndex(b => b.id === id);
@@ -202,14 +248,14 @@
             const updatedBet = db.bets[updatedBetIndex];
             const bkIndex = db.bookmakers.findIndex(b => b.id === updatedBet.bookmakerId);
             if (bkIndex !== -1 && !updatedBet.isFreebet) {
-              db.bookmakers[bkIndex].sportsBalance += updatedBet.stake;
+              db.bookmakers[bkIndex].balance += updatedBet.stake;
               // Clean up any edge cases with max
-              db.bookmakers[bkIndex].sportsBalance = Math.max(0, parseFloat(db.bookmakers[bkIndex].sportsBalance.toFixed(2)));
+              db.bookmakers[bkIndex].balance = Math.max(0, parseFloat(db.bookmakers[bkIndex].balance.toFixed(2)));
             }
             
             // Finally delete it
             db.bets.splice(updatedBetIndex, 1);
-            saveDb(db);
+            await saveDb(db);
             refreshAll();
           }
         }
@@ -223,12 +269,18 @@
           filtered = filtered.filter(b => b.status === activeFilter);
         }
 
+        // Filter by selected date from calendar
+        if (window.selectedDateFilter) {
+          filtered = filtered.filter(b => normalizeDate(b.date) === window.selectedDateFilter);
+        }
+
         // Sort by date desc
-        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+        filtered.sort((a, b) => new Date(normalizeDate(b.date)) - new Date(normalizeDate(a.date)));
 
         if (filtered.length === 0) {
           container.innerHTML = '<p class="empty-state">Nenhuma aposta encontrada</p>';
           document.getElementById('pagination-container').innerHTML = '';
+          renderDateFilterBanner();
           return;
         }
 
@@ -329,6 +381,7 @@
         }).join('');
 
         renderPagination(totalPages);
+        renderDateFilterBanner();
       }
 
       function renderPagination(totalPages) {
@@ -359,8 +412,11 @@
           document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
           e.target.classList.add('active');
           activeFilter = e.target.dataset.filter;
+          window.selectedDateFilter = null; // Clear date filter when changing status filter
           currentPageNum = 1;
           renderAllBets();
+          renderCalendar(); // re-render to remove selection highlight
+          updateGlobalUI(); // re-render global calendar
         });
       });
 
@@ -383,7 +439,8 @@
         // Group bets by date
         const dailyProfit = {};
         db.bets.filter(b => b.status !== 'pending').forEach(b => {
-          const bDate = new Date(b.date);
+          const normDate = normalizeDate(b.date);
+          const bDate = new Date(normDate + 'T12:00:00Z'); // avoid timezone shifts
           const bYear = bDate.getFullYear();
           const bMonth = bDate.getMonth();
           
@@ -392,9 +449,8 @@
             monthPnL += b.profit;
           }
 
-          const key = b.date; // already YYYY-MM-DD
-          if (!dailyProfit[key]) dailyProfit[key] = 0;
-          dailyProfit[key] += b.profit;
+          if (!dailyProfit[normDate]) dailyProfit[normDate] = 0;
+          dailyProfit[normDate] += b.profit;
         });
 
         // Update month info
@@ -430,7 +486,9 @@
             }
           }
 
-          grid.innerHTML += `<div class="${cellClass}">${i}${pnlHtml}</div>`;
+          const hasData = dailyProfit[dateStr] !== undefined;
+          const selectedClass = window.selectedDateFilter === dateStr ? ' cal-cell--selected' : '';
+          grid.innerHTML += `<div class="${cellClass}${selectedClass}" ${hasData ? `data-date="${dateStr}" onclick="filterByDate('${dateStr}')"` : ''} ${hasData ? 'style="cursor:pointer"' : 'style="cursor:default"'}>${i}${pnlHtml}</div>`;
         }
       }
 
@@ -449,6 +507,70 @@
         renderAllBets();
         renderCalendar();
         updateGlobalUI();
+      }
+
+      // Calendar day click handler
+      window.filterByDate = function(dateStr) {
+        if (window.selectedDateFilter === dateStr) {
+          // Clicking the same date again clears the filter
+          window.selectedDateFilter = null;
+        } else {
+          window.selectedDateFilter = dateStr;
+          // Switch to 'all' status filter so user sees all bets for that day
+          activeFilter = 'all';
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          const allBtn = document.querySelector('.filter-btn[data-filter="all"]');
+          if(allBtn) allBtn.classList.add('active');
+        }
+        currentPageNum = 1;
+        renderAllBets();
+        renderCalendar();
+        updateGlobalUI(); // This updates the desktop global calendar visually
+        // Scroll to the bets list
+        document.getElementById('all-bets-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+
+      window.clearDateFilter = function() {
+        window.selectedDateFilter = null;
+        currentPageNum = 1;
+        renderAllBets();
+        renderCalendar();
+        updateGlobalUI();
+      };
+
+      function renderDateFilterBanner() {
+        let banner = document.getElementById('date-filter-banner');
+        if (!window.selectedDateFilter) {
+          if (banner) banner.remove();
+          return;
+        }
+        const formattedDate = window.selectedDateFilter.split('-').reverse().join('/');
+        const bannerHtml = `<div class="date-filter-banner" id="date-filter-banner">
+          <span>📅 Mostrando apostas de<strong>${formattedDate}</strong></span>
+          <button onclick="clearDateFilter()" title="Limpar filtro">✕</button>
+        </div>`;
+        const container = document.getElementById('all-bets-container');
+        if (banner) {
+          banner.outerHTML = bannerHtml;
+        } else {
+          container.insertAdjacentHTML('beforebegin', bannerHtml);
+        }
+      }
+
+      // Read ?date= query parameter from URL (e.g. from dashboard calendar click)
+      const urlParams = new URLSearchParams(window.location.search);
+      const dateParam = urlParams.get('date');
+      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        window.selectedDateFilter = dateParam;
+        activeFilter = 'all';
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        const allBtn = document.querySelector('.filter-btn[data-filter="all"]');
+        if(allBtn) allBtn.classList.add('active');
+        // Navigate calendar to the correct month
+        const [y, m] = dateParam.split('-').map(Number);
+        currentDate = new Date(y, m - 1, 1);
+        // Clean URL without reload
+        history.replaceState(null, '', window.location.pathname);
       }
 
       refreshAll();

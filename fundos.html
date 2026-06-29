@@ -7,7 +7,21 @@
   <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
-  <div class="app-wrapper">
+  
+  <div id="auth-loading" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-body); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text);">
+    <h2>Carregando...</h2>
+  </div>
+  <div id="login-screen" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-body); z-index: 9998; display: none; flex-direction: column; justify-content: center; align-items: center; color: var(--text);">
+    <div style="font-size: 48px; margin-bottom: 16px;">🎯</div>
+    <h1 style="margin-bottom: 8px;">BetTracker</h1>
+    <p style="color: var(--muted); margin-bottom: 24px;">Faça login para acessar suas apostas na nuvem.</p>
+    <button class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"/></svg>
+      Entrar com Google
+    </button>
+  </div>
+
+  <div class="app-wrapper" id="main-app-wrapper" style="display: none;">
     <div id="global-topbar"></div>
     <div class="app-body" id="app-body">
       <aside class="desktop-sidebar" id="global-sidebar"></aside>
@@ -95,10 +109,25 @@
     <nav class="mobile-nav" id="global-mobile-nav"></nav>
   </div>
 
-  <script src="app.js?v=5"></script>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <script src="app.js?v=11"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      let db = loadDb();
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await window.authStateReady;
+      document.getElementById('auth-loading').style.display = 'none';
+      if (!user) {
+        document.getElementById('login-screen').style.display = 'flex';
+        return;
+      }
+      document.getElementById('main-app-wrapper').style.display = '';
+
+      let db = await loadDb();
       let currentType = 'withdraw';
       
       const mpBalance = document.getElementById('mp-balance');
@@ -117,13 +146,14 @@
       updateMpDisplay();
 
       // Mercado Pago editing
-      window.editMpBalance = () => {
+      window.editMpBalance = async () => {
+        db = await loadDb();
         const novoSaldo = prompt("Digite o novo saldo do Mercado Pago:", db.mercadoPago.toFixed(2));
         if (novoSaldo !== null) {
           const parsed = parseFloat(novoSaldo.replace(',', '.'));
           if (!isNaN(parsed)) {
             db.mercadoPago = parsed;
-            saveDb(db);
+            await saveDb(db);
             updateMpDisplay();
             updateGlobalUI();
           }
@@ -136,7 +166,7 @@
 
       function populateSelects() {
         const options = db.bookmakers.map(bk => 
-          `<option value="${bk.id}">${bk.name} (R$ ${bk.sportsBalance.toFixed(2)})</option>`
+          `<option value="${bk.id}">${bk.name} (R$ ${Number(bk.balance || 0).toFixed(2)})</option>`
         ).join('');
         
         const prevFrom = inputBookFrom.value;
@@ -225,7 +255,7 @@
         }).join('');
       }
 
-      form.addEventListener('submit', (e) => {
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
         let amountStr = document.getElementById('input-amount').value;
@@ -233,8 +263,13 @@
         const bkFromId = inputBookFrom.value;
         const bkToId = inputBookTo.value;
         
-        if (amount <= 0) return;
+        if (!amount || amount <= 0) {
+          alert('Por favor, informe um valor válido.');
+          return;
+        }
 
+        db = await loadDb(); // Reload db to avoid stale state from other tabs
+        
         const idxFrom = db.bookmakers.findIndex(b => b.id === bkFromId);
         const idxTo = db.bookmakers.findIndex(b => b.id === bkToId);
 
@@ -245,15 +280,15 @@
           }
           db.mercadoPago -= amount;
           db.mercadoPago = Math.max(0, parseFloat(db.mercadoPago.toFixed(2)));
-          db.bookmakers[idxFrom].sportsBalance += amount;
-          db.bookmakers[idxFrom].sportsBalance = parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2));
+          db.bookmakers[idxFrom].balance += amount;
+          db.bookmakers[idxFrom].balance = parseFloat(db.bookmakers[idxFrom].balance.toFixed(2));
         } else if (currentType === 'withdraw') {
-          if (parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2)) < amount) {
+          if (parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)) < amount) {
             alert('Saldo na Casa de Apostas insuficiente.');
             return;
           }
-          db.bookmakers[idxFrom].sportsBalance -= amount;
-          db.bookmakers[idxFrom].sportsBalance = Math.max(0, parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2)));
+          db.bookmakers[idxFrom].balance -= amount;
+          db.bookmakers[idxFrom].balance = Math.max(0, parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)));
           db.mercadoPago += amount;
           db.mercadoPago = parseFloat(db.mercadoPago.toFixed(2));
         } else if (currentType === 'transfer') {
@@ -261,14 +296,14 @@
             alert('Origem e destino devem ser diferentes.');
             return;
           }
-          if (parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2)) < amount) {
+          if (parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)) < amount) {
             alert('Saldo na Casa de Origem insuficiente.');
             return;
           }
-          db.bookmakers[idxFrom].sportsBalance -= amount;
-          db.bookmakers[idxFrom].sportsBalance = Math.max(0, parseFloat(db.bookmakers[idxFrom].sportsBalance.toFixed(2)));
-          db.bookmakers[idxTo].sportsBalance += amount;
-          db.bookmakers[idxTo].sportsBalance = parseFloat(db.bookmakers[idxTo].sportsBalance.toFixed(2));
+          db.bookmakers[idxFrom].balance -= amount;
+          db.bookmakers[idxFrom].balance = Math.max(0, parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)));
+          db.bookmakers[idxTo].balance += amount;
+          db.bookmakers[idxTo].balance = parseFloat(db.bookmakers[idxTo].balance.toFixed(2));
         }
 
         // Add history record
@@ -283,7 +318,7 @@
           note: document.getElementById('input-note').value
         });
 
-        saveDb(db);
+        await saveDb(db);
         alert('Movimentação salva com sucesso!');
         form.reset();
         document.getElementById('input-date').valueAsDate = new Date();

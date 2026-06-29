@@ -18,105 +18,108 @@ const defaultDb = {
 
 // ─── DB FUNCTIONS ──────────────────────────────────────────────
 
-function loadDb() {
-  const data = localStorage.getItem(DB_KEY);
-  let parsed = {};
-  if (data) {
-    try {
-      parsed = JSON.parse(data);
-    } catch (e) {
-      console.error("BetTracker: Corrupted local storage data. Falling back to defaults.", e);
-      parsed = {};
-    }
+async function loadDb() {
+  await window.authStateReady;
+  if (!window.currentUser) {
+    return { ...defaultDb };
   }
-  let db = { ...defaultDb, ...parsed };
-  db.mercadoPago = Number(db.mercadoPago) || 0;
+
+  const userId = window.currentUser.uid;
+  const docRef = fDb.collection('users').doc(userId);
   
-  // Ensure dailyLogins exists
-  if (!db.dailyLogins) {
-    db.dailyLogins = { date: '', logins: {} };
-  }
-  
-  // Reset dailyLogins if it's a new day
-  const today = new Date();
-  const localToday = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  if (db.dailyLogins.date !== localToday) {
-    db.dailyLogins = { date: localToday, logins: {} };
-  }
-
-  let dbChanged = false;
-
-  // Sanitize arrays to prevent null pointer exceptions
-  if (!Array.isArray(db.bookmakers)) {
-    db.bookmakers = [];
-    dbChanged = true;
-  }
-  const originalBkLength = db.bookmakers.length;
-  db.bookmakers = db.bookmakers.filter(bk => bk !== null && bk !== undefined);
-  if (db.bookmakers.length !== originalBkLength) {
-    dbChanged = true;
-  }
-
-  if (!Array.isArray(db.bets)) {
-    db.bets = [];
-    dbChanged = true;
-  }
-  const originalBetsLength = db.bets.length;
-  db.bets = db.bets.filter(b => b !== null && b !== undefined);
-  if (db.bets.length !== originalBetsLength) {
-    dbChanged = true;
-  }
-
-  if (!Array.isArray(db.cashflow)) {
-    db.cashflow = [];
-    dbChanged = true;
-  }
-  const originalCashflowLength = db.cashflow.length;
-  db.cashflow = db.cashflow.filter(c => c !== null && c !== undefined);
-  if (db.cashflow.length !== originalCashflowLength) {
-    dbChanged = true;
-  }
-
-  // Sanitize and migrate bookmakers
-  if (db.bookmakers.length > 0) {
-    db.bookmakers.forEach(bk => {
-      if (bk.sportsBalance !== undefined || bk.casinoBalance !== undefined) {
-        bk.balance = (Number(bk.sportsBalance) || 0) + (Number(bk.casinoBalance) || 0);
-        delete bk.sportsBalance;
-        delete bk.casinoBalance;
-        dbChanged = true;
-      }
-      if (bk.balance !== undefined) {
-        bk.balance = Number(bk.balance) || 0;
-      } else {
-        bk.balance = 0;
-      }
-    });
-  }
-
-  // Normalize dates to YYYY-MM-DD to avoid issues with old formats (like DD/MM/YYYY)
-  if (db.bets) {
-    db.bets.forEach(b => {
-      if (b.date && b.date.includes('/')) {
-        const parts = b.date.split('/');
-        if (parts.length === 3) {
-          b.date = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-          dbChanged = true;
+  try {
+    const docSnap = await docRef.get();
+    let parsed = {};
+    
+    if (docSnap.exists) {
+      parsed = docSnap.data();
+    } else {
+      // Automatic Migration from localStorage
+      const localData = localStorage.getItem('bettracker_db');
+      if (localData) {
+        try {
+          parsed = JSON.parse(localData);
+          console.log("Migrated data from localStorage to Firestore!");
+        } catch(e) {
+          parsed = { ...defaultDb };
         }
+      } else {
+        parsed = { ...defaultDb };
       }
-    });
-  }
+      await docRef.set(parsed);
+    }
 
-  if (dbChanged) {
-    localStorage.setItem(DB_KEY, JSON.stringify(db));
+
+    let db = { ...defaultDb, ...parsed };
+    db.mercadoPago = Number(db.mercadoPago) || 0;
+    
+    if (!db.dailyLogins) db.dailyLogins = { date: '', logins: {} };
+    
+    const today = new Date();
+    const localToday = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    if (db.dailyLogins.date !== localToday) {
+      db.dailyLogins = { date: localToday, logins: {} };
+    }
+
+    if (!Array.isArray(db.bookmakers)) db.bookmakers = [];
+    db.bookmakers = db.bookmakers.filter(bk => bk !== null && bk !== undefined);
+    
+    if (!Array.isArray(db.bets)) db.bets = [];
+    db.bets = db.bets.filter(b => b !== null && b !== undefined);
+    
+    if (!Array.isArray(db.cashflow)) db.cashflow = [];
+    db.cashflow = db.cashflow.filter(c => c !== null && c !== undefined);
+
+    if (db.bookmakers.length > 0) {
+      db.bookmakers.forEach(bk => {
+        if (bk.sportsBalance !== undefined || bk.casinoBalance !== undefined) {
+          bk.balance = (Number(bk.sportsBalance) || 0) + (Number(bk.casinoBalance) || 0);
+          delete bk.sportsBalance;
+          delete bk.casinoBalance;
+        }
+        if (bk.balance !== undefined) {
+          bk.balance = Number(bk.balance) || 0;
+        } else {
+          bk.balance = 0;
+        }
+      });
+    }
+
+    if (db.bets) {
+      db.bets.forEach(b => {
+        if (b.date && b.date.includes('/')) {
+          const parts = b.date.split('/');
+          if (parts.length === 3) {
+            b.date = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+          }
+        }
+      });
+    }
+    
+    // Store globally for sync reads during UI rendering
+    window._currentDb = db;
+    renderShell();
+    return db;
+  } catch (error) {
+    console.error("Error loading DB from Firestore:", error);
+    alert("Erro ao carregar os dados. Verifique a internet e tente novamente.");
+    return { ...defaultDb };
   }
-  
-  return db;
 }
 
-function saveDb(db) {
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
-  updateGlobalUI();
+async function saveDb(db) {
+  window._currentDb = db;
+  if (!window.currentUser) return;
+  const userId = window.currentUser.uid;
+  const docRef = fDb.collection('users').doc(userId);
+  
+  try {
+    await docRef.set(db);
+    updateGlobalUI();
+  } catch (error) {
+    console.error("Error saving DB to Firestore:", error);
+    alert("Erro ao salvar os dados. " + error.message);
+  }
 }
 
 // ─── UTILS ─────────────────────────────────────────────────────
@@ -220,7 +223,7 @@ function renderGlobalCalendar() {
   if(!grid) return;
   grid.innerHTML = '';
 
-  const db = loadDb();
+  const db = window._currentDb;
   const firstDayIndex = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   
@@ -281,14 +284,28 @@ function renderGlobalCalendar() {
         pnlHtml = `<div class="cal-cell__pnl" style="color:var(--muted)">0</div>`;
       }
     }
-    grid.innerHTML += `<div class="${cellClass}" style="cursor:pointer;" onclick="location.href='historico.html?date=${dateStr}'">${i}${pnlHtml}</div>`;
+    const hasData = dailyProfit[dateStr] !== undefined;
+    const isHistorico = window.location.pathname.includes('historico');
+    const clickHandler = hasData
+      ? (isHistorico
+          ? `onclick="filterByDate('${dateStr}')"`
+          : `onclick="location.href='historico.html?date=${dateStr}'"`)
+      : '';
+    const cellCursor = hasData ? 'cursor:pointer;' : 'cursor:default;';
+    
+    // Check if this date is currently selected in historico
+    if (window.selectedDateFilter === dateStr) {
+      cellClass += ' cal-cell--selected';
+    }
+
+    grid.innerHTML += `<div class="${cellClass}" style="${cellCursor}" ${clickHandler}>${i}${pnlHtml}</div>`;
   }
 }
 
 // ─── GLOBAL UI UPDATES ─────────────────────────────────────────
 
 function updateGlobalUI() {
-  const db = loadDb();
+  const db = window._currentDb;
   const patrimonio = calculatePatrimonio(db);
   const stats = calculateStats(db);
   
@@ -307,7 +324,12 @@ function updateGlobalUI() {
   // Update Desktop Sidebar (Saldo por Casa)
   const sidebarEl = document.getElementById('global-sidebar');
   if (sidebarEl) {
-    let bkListHtml = db.bookmakers.map(bk => {
+    let bkListHtml = db.bookmakers
+      .filter(bk => {
+        const total = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0));
+        return total >= 0.01;
+      })
+      .map(bk => {
       const total = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0));
       return `<div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:${bk.color}"></div> ${bk.name}</span> <span class="value">${formatMoney(total)}</span></div>`;
     }).join('');
@@ -317,6 +339,11 @@ function updateGlobalUI() {
       sidebarSection.innerHTML = `
         <h3>Saldo Por Casa</h3>
         ${bkListHtml}
+        
+      <div class="sidebar-bk-row" style="margin-top: 16px; cursor: pointer;" onclick="logout()">
+        <span class="name" style="color: var(--red);">Sair (Logout)</span>
+      </div>
+
       `;
     }
     
@@ -408,7 +435,7 @@ function updateGlobalUI() {
 
 function renderShell() {
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
-  const db = loadDb();
+  const db = window._currentDb;
   const stats = calculateStats(db);
   
   // 1. TOPBAR (Mobile Header + Desktop Topbar)
@@ -450,7 +477,12 @@ function renderShell() {
   // 2. DESKTOP SIDEBAR
   const sidebarEl = document.getElementById('global-sidebar');
   if (sidebarEl) {
-    let bkListHtml = db.bookmakers.map(bk => {
+    let bkListHtml = db.bookmakers
+      .filter(bk => {
+        const total = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0));
+        return total >= 0.01;
+      })
+      .map(bk => {
       const total = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0));
       return `<div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:${bk.color}"></div> ${bk.name}</span> <span class="value">${formatMoney(total)}</span></div>`;
     }).join('');
@@ -478,6 +510,10 @@ function renderShell() {
       <div class="desktop-sidebar-section">
         <h3>Exposto</h3>
         <div class="sidebar-bk-row"><span class="name">⚡ Exposto</span> <span class="value" id="sidebar-exposto-val" style="color:var(--gold)">${formatMoney(calculateExposed(db))}</span></div>
+      </div>
+
+      <div class="desktop-sidebar-section" style="margin-top: 32px; cursor: pointer;" onclick="logout()">
+        <h3 style="color: var(--red);">Sair (Logout)</h3>
       </div>
     `;
   }
@@ -516,8 +552,12 @@ function renderShell() {
   // 4. STATS ROW (Desktop Main Top)
   const appMain = document.getElementById('app-main');
   if (appMain) {
-    const statsRow = document.createElement('div');
-    statsRow.className = 'stats-row';
+    let statsRow = appMain.querySelector('.stats-row');
+    if (!statsRow) {
+      statsRow = document.createElement('div');
+      statsRow.className = 'stats-row';
+      // Already inserted when created
+    }
     statsRow.innerHTML = `
       <div class="card" style="padding: 12px;">
         <div style="font-size:12px; color:var(--muted); text-transform:uppercase;">Apostado</div>
@@ -547,9 +587,7 @@ function renderShell() {
 }
 
 // Initialize on DOM load
-document.addEventListener('DOMContentLoaded', () => {
-  renderShell();
-});
+
 
 // Update automatically if user changes data in another tab
 window.addEventListener('storage', (e) => {
@@ -559,7 +597,7 @@ window.addEventListener('storage', (e) => {
     // If we're on the index page, ensure the dropdown reflects new balances
     const bkSelect = document.getElementById('bet-bookmaker');
     if (bkSelect) {
-      const db = loadDb();
+      const db = window._currentDb;
       const currentSelected = bkSelect.value;
       bkSelect.innerHTML = '';
       db.bookmakers.forEach(bk => {
