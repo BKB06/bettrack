@@ -156,6 +156,51 @@
         }
       };
 
+      window.previewUrl = (id, name, value, inputEl) => {
+        if (inputEl) {
+          const card = inputEl.closest('.bookmaker-card');
+          if (card) {
+            const link = card.querySelector('.external-link-btn');
+            if (link) {
+              let url = value ? value.trim() : '';
+              if (url) {
+                url = url.replace(/^(https?:\/\/|:\/\/)+/, '');
+                url = 'https://' + url;
+              }
+              link.href = url || getDefaultBookmakerUrl(name);
+            }
+          }
+        }
+      };
+
+      window.updateUrl = async (id, value, inputEl) => {
+        db = await loadDb();
+        const bk = db.bookmakers.find(b => b.id === id);
+        if (bk) {
+          let url = value ? value.trim() : '';
+          if (url) {
+            url = url.replace(/^(https?:\/\/|:\/\/)+/, '');
+            url = 'https://' + url;
+          } else {
+            url = '';
+          }
+          bk.url = url;
+          await saveDb(db);
+          // Atualiza o link e o input no DOM para refletir a alteração instantaneamente
+          if (inputEl) {
+            const card = inputEl.closest('.bookmaker-card');
+            if (card) {
+              const link = card.querySelector('.external-link-btn');
+              const finalUrl = url || getDefaultBookmakerUrl(bk.name);
+              if (link) {
+                link.href = finalUrl;
+              }
+              inputEl.value = finalUrl.replace(/^https?:\/\/(www\.)?/, '');
+            }
+          }
+        }
+      };
+
       function renderTotals() {
         const tSports = db.bookmakers.reduce((sum, bk) => sum + Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0)), 0);
         const tExposed = calculateExposed(db);
@@ -219,7 +264,7 @@
                 
                 <div class="bookmaker-url-row">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                  <input type="text" class="url-input-clean" value="${(bk.url || getDefaultBookmakerUrl(bk.name)).replace(/^https?:\/\/(www\.)?/, '')}" onchange="updateUrl('${bk.id}', this.value.startsWith('http') ? this.value : 'https://' + this.value)" placeholder="dominio.com">
+                  <input type="text" class="url-input-clean" value="${(bk.url || getDefaultBookmakerUrl(bk.name)).replace(/^https?:\/\/(www\.)?/, '')}" onchange="updateUrl('${bk.id}', this.value, this)" oninput="previewUrl('${bk.id}', '${bk.name}', this.value, this)" placeholder="dominio.com">
                   <a href="${bk.url || getDefaultBookmakerUrl(bk.name)}" target="_blank" class="external-link-btn" title="Acessar site" onclick="autoCheckin('${bk.id}')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                   </a>

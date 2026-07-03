@@ -67,3 +67,25 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Firebase config com credenciais reais
+firebase-config.js
+
+# Arquivos de teste/debug
+execTest*.js
+testParse*.js
+testBar.js
+testLogic.html
+testRegex.js
+test_*.js
+test.js
+test-loaddb.js
+syntax_test.js
+fix_syntax.js
+parse_test*.py
+debug.html
+runJsTest.html
+test_js.html
+test_match.html
+temp_script*.js
+patch_index_submit.js
