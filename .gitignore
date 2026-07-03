@@ -73,7 +73,7 @@ firebase-config.js
 
 # Arquivos de teste/debug
 execTest*.js
-testParse*.js
+testParse*
 testBar.js
 testLogic.html
 testRegex.js
