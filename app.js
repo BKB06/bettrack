@@ -191,10 +191,34 @@ function getTodayLogins(db) {
 function markLogin(db, bookmakerId) {
   const now = new Date();
   const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const bookmaker = db.bookmakers.find(bk => bk.id === bookmakerId);
+  if (bookmaker && bookmaker.lastLoginBeforeUndo === undefined) {
+    bookmaker.lastLoginBeforeUndo = bookmaker.lastLogin;
+  }
   db.dailyLogins.logins[bookmakerId] = time;
+  if (bookmaker) bookmaker.lastLogin = now.toISOString();
 }
 
 function unmarkLogin(db, bookmakerId) {
+  const bookmaker = db.bookmakers.find(bk => bk.id === bookmakerId);
+  if (bookmaker) {
+    if (bookmaker.lastLoginBeforeUndo !== undefined) {
+      if (bookmaker.lastLoginBeforeUndo) {
+        bookmaker.lastLogin = bookmaker.lastLoginBeforeUndo;
+      } else {
+        delete bookmaker.lastLogin;
+      }
+      delete bookmaker.lastLoginBeforeUndo;
+    } else if (db.dailyLogins.previousLastLogins && bookmakerId in db.dailyLogins.previousLastLogins) {
+      const previousLastLogin = db.dailyLogins.previousLastLogins[bookmakerId];
+      if (previousLastLogin) {
+        bookmaker.lastLogin = previousLastLogin;
+      } else {
+        delete bookmaker.lastLogin;
+      }
+      delete db.dailyLogins.previousLastLogins[bookmakerId];
+    }
+  }
   delete db.dailyLogins.logins[bookmakerId];
 }
 

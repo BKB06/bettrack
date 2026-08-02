@@ -564,9 +564,11 @@
         if (!db.dailyLogins.logins[id]) {
           const now = new Date();
           const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-          db.dailyLogins.logins[id] = time;
-          
           const bk = db.bookmakers.find(b => b.id === id);
+          if (bk && bk.lastLoginBeforeUndo === undefined) {
+            bk.lastLoginBeforeUndo = bk.lastLogin;
+          }
+          db.dailyLogins.logins[id] = time;
           if (bk) bk.lastLogin = now.toISOString();
 
           await saveDb(db);
@@ -576,6 +578,25 @@
 
       window.undoLogin = async (id) => {
         db = await loadDb();
+        const bk = db.bookmakers.find(b => b.id === id);
+        if (bk) {
+          if (bk.lastLoginBeforeUndo !== undefined) {
+            if (bk.lastLoginBeforeUndo) {
+              bk.lastLogin = bk.lastLoginBeforeUndo;
+            } else {
+              delete bk.lastLogin;
+            }
+            delete bk.lastLoginBeforeUndo;
+          } else if (db.dailyLogins.previousLastLogins && id in db.dailyLogins.previousLastLogins) {
+            const previousLastLogin = db.dailyLogins.previousLastLogins[id];
+            if (previousLastLogin) {
+              bk.lastLogin = previousLastLogin;
+            } else {
+              delete bk.lastLogin;
+            }
+            delete db.dailyLogins.previousLastLogins[id];
+          }
+        }
         delete db.dailyLogins.logins[id];
         await saveDb(db);
         renderLogins();
@@ -588,6 +609,9 @@
         db.bookmakers.forEach(bk => {
           // Only set if not already logged
           if (!db.dailyLogins.logins[bk.id]) {
+            if (bk.lastLoginBeforeUndo === undefined) {
+              bk.lastLoginBeforeUndo = bk.lastLogin;
+            }
             db.dailyLogins.logins[bk.id] = time;
             bk.lastLogin = now.toISOString();
           }
