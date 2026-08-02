@@ -78,12 +78,23 @@
 
       <!-- Lista Completa -->
       <section>
-        <div class="filter-bar">
+        <div class="filter-bar" id="status-filter-bar">
           <button class="filter-btn" data-filter="all">Todas</button>
           <button class="filter-btn active" data-filter="pending">Abertas</button>
           <button class="filter-btn" data-filter="won">Acertadas</button>
           <button class="filter-btn" data-filter="lost">Erradas</button>
           <button class="filter-btn" data-filter="void">Devolvidas</button>
+        </div>
+        <div class="filter-bar" id="sport-filter-bar" style="margin-top: 8px;">
+          <button class="filter-btn active" data-sport="all">Todos</button>
+          <button class="filter-btn" data-sport="Basquete">🏀 Basquete</button>
+          <button class="filter-btn" data-sport="Futebol">⚽ Futebol</button>
+          <button class="filter-btn" data-sport="Outros">🎯 Outros</button>
+        </div>
+        <div class="filter-bar" id="league-filter-bar" style="margin-top: 8px; display: none;">
+          <button class="filter-btn active" data-league="all">Todas</button>
+          <button class="filter-btn" data-league="NBA">NBA</button>
+          <button class="filter-btn" data-league="WNBA">WNBA</button>
         </div>
         <div id="all-bets-container"></div>
         <div id="pagination-container" class="pagination"></div>
@@ -103,7 +114,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=13"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const user = await window.authStateReady;
@@ -117,6 +128,8 @@
       let db = await loadDb();
       let currentDate = new Date();
       let activeFilter = 'pending';
+      let activeSportFilter = 'all';
+      let activeLeagueFilter = 'all';
       let currentPageNum = 1;
       window.selectedDateFilter = null; // YYYY-MM-DD or null
       const ITEMS_PER_PAGE = 10;
@@ -133,8 +146,15 @@
       }
 
       function renderKPIs() {
-        const wonBets = db.bets.filter(b => b.status === 'won');
-        const lostBets = db.bets.filter(b => b.status === 'lost');
+        let kpiBets = db.bets;
+        if (activeSportFilter !== 'all') {
+          kpiBets = kpiBets.filter(b => (b.sport || 'Outros') === activeSportFilter);
+        }
+        if (activeSportFilter === 'Basquete' && activeLeagueFilter !== 'all') {
+          kpiBets = kpiBets.filter(b => b.league === activeLeagueFilter);
+        }
+        const wonBets = kpiBets.filter(b => b.status === 'won');
+        const lostBets = kpiBets.filter(b => b.status === 'lost');
 
         const maxOddWin = wonBets.length ? Math.max(...wonBets.map(b => b.odd)) : 0;
         const minOddLoss = lostBets.length ? Math.min(...lostBets.map(b => b.odd)) : 0;
@@ -269,6 +289,16 @@
           filtered = filtered.filter(b => b.status === activeFilter);
         }
 
+        // Sport filter
+        if (activeSportFilter !== 'all') {
+          filtered = filtered.filter(b => (b.sport || 'Outros') === activeSportFilter);
+        }
+
+        // League filter (only when sport is Basquete)
+        if (activeSportFilter === 'Basquete' && activeLeagueFilter !== 'all') {
+          filtered = filtered.filter(b => b.league === activeLeagueFilter);
+        }
+
         // Filter by selected date from calendar
         if (window.selectedDateFilter) {
           filtered = filtered.filter(b => normalizeDate(b.date) === window.selectedDateFilter);
@@ -301,8 +331,11 @@
           const bkName = bk ? bk.name : 'Desconhecida';
           let statusBadge, pnlClass, pnlText, actionsHtml = '';
 
+          const catClass = b.sport === 'Outros' ? 'tag--purple' : 'tag--blue';
+          const sportLabel = b.sport === 'Basquete' ? '🏀' : b.sport === 'Futebol' ? '⚽' : '🎯';
+          const leagueTag = b.league ? `<span class="tag tag--blue">${b.league}</span>` : '';
+
           if (b.status === 'pending') {
-            const catClass = b.category === 'Outros' || b.category === 'Cassino' ? 'tag--purple' : 'tag--blue';
             const freebetTag = b.isFreebet ? '<span class="tag tag--gold" style="background:#ffb80044;">🎁 FREEBET</span>' : '';
             return `
               <div class="bet-card">
@@ -315,7 +348,8 @@
                 <div class="bet-card__tags" style="margin-bottom: 16px;">
                   <span class="tag tag--gold">⌛ ABERTA</span>
                   ${freebetTag}
-                  <span class="tag ${catClass}">${b.category}</span>
+                  <span class="tag ${catClass}">${sportLabel} ${b.sport}</span>
+                    ${leagueTag}
                   <span class="tag" style="background: ${bk ? bk.color : '#fff'}22; color: ${bk ? bk.color : '#fff'};">${bkName}</span>
                 </div>
                 
@@ -356,6 +390,8 @@
                   <div class="bet-card__tags">
                     ${statusBadge}
                     ${freebetTagResolved}
+                    <span class="tag ${catClass}">${sportLabel} ${b.sport}</span>
+                    ${leagueTag}
                     <span class="tag tag--muted">${bkName}</span>
                     <span class="tag tag--muted">Odd ${b.odd.toFixed(2)}</span>
                   </div>
@@ -407,9 +443,9 @@
       };
 
       // Filter events
-      document.querySelectorAll('.filter-btn').forEach(btn => {
+      document.querySelectorAll('#status-filter-bar .filter-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('#status-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
           e.target.classList.add('active');
           activeFilter = e.target.dataset.filter;
           window.selectedDateFilter = null; // Clear date filter when changing status filter
@@ -417,6 +453,35 @@
           renderAllBets();
           renderCalendar(); // re-render to remove selection highlight
           updateGlobalUI(); // re-render global calendar
+        });
+      });
+
+      // Sport filter events
+      document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          activeSportFilter = e.target.dataset.sport;
+          // Reset league filter
+          activeLeagueFilter = 'all';
+          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          const allLeagueBtn = document.querySelector('#league-filter-bar .filter-btn[data-league="all"]');
+          if (allLeagueBtn) allLeagueBtn.classList.add('active');
+          // Show/hide league filter bar
+          document.getElementById('league-filter-bar').style.display = activeSportFilter === 'Basquete' ? '' : 'none';
+          currentPageNum = 1;
+          renderAllBets();
+        });
+      });
+
+      // League filter events
+      document.querySelectorAll('#league-filter-bar .filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          activeLeagueFilter = e.target.dataset.league;
+          currentPageNum = 1;
+          renderAllBets();
         });
       });
 
@@ -518,8 +583,8 @@
           window.selectedDateFilter = dateStr;
           // Switch to 'all' status filter so user sees all bets for that day
           activeFilter = 'all';
-          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-          const allBtn = document.querySelector('.filter-btn[data-filter="all"]');
+          document.querySelectorAll('#status-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          const allBtn = document.querySelector('#status-filter-bar .filter-btn[data-filter="all"]');
           if(allBtn) allBtn.classList.add('active');
         }
         currentPageNum = 1;
@@ -563,8 +628,8 @@
       if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
         window.selectedDateFilter = dateParam;
         activeFilter = 'all';
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        const allBtn = document.querySelector('.filter-btn[data-filter="all"]');
+        document.querySelectorAll('#status-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+        const allBtn = document.querySelector('#status-filter-bar .filter-btn[data-filter="all"]');
         if(allBtn) allBtn.classList.add('active');
         // Navigate calendar to the correct month
         const [y, m] = dateParam.split('-').map(Number);

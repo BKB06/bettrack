@@ -48,6 +48,19 @@
         </div>
       </div>
 
+      <!-- Sport Filter -->
+      <div class="filter-bar" id="sport-filter-bar" style="margin-bottom: 16px;">
+        <button class="filter-btn active" data-sport="all">Todos</button>
+        <button class="filter-btn" data-sport="Basquete">🏀 Basquete</button>
+        <button class="filter-btn" data-sport="Futebol">⚽ Futebol</button>
+        <button class="filter-btn" data-sport="Outros">🎯 Outros</button>
+      </div>
+      <div class="filter-bar" id="league-filter-bar" style="margin-bottom: 16px; display: none;">
+        <button class="filter-btn active" data-league="all">Todas</button>
+        <button class="filter-btn" data-league="NBA">NBA</button>
+        <button class="filter-btn" data-league="WNBA">WNBA</button>
+      </div>
+
       <!-- Report List -->
       <div class="card" style="padding: 0 16px;">
         <!-- PERFORMANCE -->
@@ -130,7 +143,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=13"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const user = await window.authStateReady;
@@ -143,17 +156,29 @@
 
       const db = await loadDb();
 
+      let activeSportFilter = 'all';
+      let activeLeagueFilter = 'all';
+
       function formatPct(val) {
         const sign = val > 0 ? '+' : '';
         return `${sign}${(val * 100).toFixed(2)}%`;
       }
 
       function renderReport() {
+        // Sport/League filtering
+        let filteredBets = db.bets;
+        if (activeSportFilter !== 'all') {
+          filteredBets = filteredBets.filter(b => (b.sport || 'Outros') === activeSportFilter);
+        }
+        if (activeSportFilter === 'Basquete' && activeLeagueFilter !== 'all') {
+          filteredBets = filteredBets.filter(b => b.league === activeLeagueFilter);
+        }
+
         // Bets stats
-        const resolvedBets = db.bets.filter(b => b.status === 'won' || b.status === 'lost');
-        const wonBets = db.bets.filter(b => b.status === 'won');
-        const lostBets = db.bets.filter(b => b.status === 'lost');
-        const pendingBets = db.bets.filter(b => b.status === 'pending');
+        const resolvedBets = filteredBets.filter(b => b.status === 'won' || b.status === 'lost');
+        const wonBets = filteredBets.filter(b => b.status === 'won');
+        const lostBets = filteredBets.filter(b => b.status === 'lost');
+        const pendingBets = filteredBets.filter(b => b.status === 'pending');
         
         const totalStaked = resolvedBets.reduce((sum, b) => sum + b.stake, 0);
         const totalProfit = resolvedBets.reduce((sum, b) => sum + b.profit, 0);
@@ -192,7 +217,7 @@
         setEl('rep-winrate', `${(winrate * 100).toFixed(1)}%`, winrateColor);
         setEl('rep-odd', avgOdd.toFixed(2));
 
-        setEl('rep-total-bets', db.bets.length);
+        setEl('rep-total-bets', filteredBets.length);
         setEl('rep-won', wonBets.length, 'c-green');
         setEl('rep-lost', lostBets.length, 'c-red');
         setEl('rep-pending', pendingBets.length, 'c-gold');
@@ -207,12 +232,10 @@
 
         // Patrimonio
         const patrimonio = calculatePatrimonio(db);
-        // Simplified growth calculation for demo (current vs total deposits)
-        // If they want real nominal growth: totalProfit + casinoProfit (hard to track without casino logs)
-        // We'll use a simple proxy: patrimonio vs net deposited
+        // Growth calculation: how much the patrimonio grew compared to total deposited capital
         const netDeposited = totalDeposits - totalWithdraws;
         const growthNominal = netDeposited > 0 ? (patrimonio - netDeposited) : totalProfit; 
-        const growthPct = netDeposited > 0 ? growthNominal / netDeposited : 0;
+        const growthPct = totalDeposits > 0 ? growthNominal / totalDeposits : 0;
 
         setEl('rep-growth-pct', formatPct(growthPct), growthPct >= 0 ? 'c-green' : 'c-red');
         setEl('rep-growth-nom', formatMoney(growthNominal), growthNominal >= 0 ? 'c-green' : 'c-red');
@@ -223,6 +246,31 @@
         const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
         document.getElementById('last-updated').textContent = `Atualizado ${String(now.getDate()).padStart(2, '0')} de ${months[now.getMonth()]} de ${now.getFullYear()}`;
       }
+
+      // Sport filter events
+      document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          activeSportFilter = e.target.dataset.sport;
+          activeLeagueFilter = 'all';
+          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          const allLeagueBtn = document.querySelector('#league-filter-bar .filter-btn[data-league="all"]');
+          if (allLeagueBtn) allLeagueBtn.classList.add('active');
+          document.getElementById('league-filter-bar').style.display = activeSportFilter === 'Basquete' ? '' : 'none';
+          renderReport();
+        });
+      });
+
+      // League filter events
+      document.querySelectorAll('#league-filter-bar .filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          activeLeagueFilter = e.target.dataset.league;
+          renderReport();
+        });
+      });
 
       renderReport();
     });

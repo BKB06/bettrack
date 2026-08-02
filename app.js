@@ -93,6 +93,28 @@ async function loadDb() {
             b.date = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
           }
         }
+        // Migrate old category field to sport + league
+        if (b.category && !b.sport) {
+          if (b.category === 'NBA') {
+            b.sport = 'Basquete';
+            b.league = 'NBA';
+          } else if (b.category === 'WNBA') {
+            b.sport = 'Basquete';
+            b.league = 'WNBA';
+          } else if (b.category === 'Futebol') {
+            b.sport = 'Futebol';
+            b.league = '';
+          } else {
+            b.sport = 'Outros';
+            b.league = '';
+          }
+          delete b.category;
+        }
+        // Ensure sport field always exists
+        if (!b.sport) {
+          b.sport = 'Outros';
+          b.league = b.league || '';
+        }
       });
     }
     
@@ -142,6 +164,8 @@ function getDefaultBookmakerUrl(name) {
   if (lowerName.includes('sportingbet')) return 'https://sports.sportingbet.com';
   if (lowerName.includes('1xbet')) return 'https://1xbet.com';
   if (lowerName.includes('estrelabet') || lowerName.includes('estrela bet')) return 'https://estrelabet.com';
+  if (lowerName.includes('novibet')) return 'https://www.novibet.com.br';
+  if (lowerName.includes('betdasorte') || lowerName.includes('bet da sorte') || lowerName.includes('bet dá sorte')) return 'https://www.betdasorte.com';
   return '';
 }
 
@@ -363,7 +387,7 @@ function updateGlobalUI() {
       const freebetMarker = b.isFreebet ? ' <span style="color:#ffb800;">(Freebet)</span>' : '';
       abertasHtml += `
         <div style="font-size: 13px; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-          <div style="color:var(--muted); margin-bottom:2px;">${b.category} • Odd ${b.odd}${freebetMarker}</div>
+          <div style="color:var(--muted); margin-bottom:2px;">${b.sport || 'Outros'}${b.league ? ' · ' + b.league : ''} • Odd ${b.odd}${freebetMarker}</div>
           <div style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.event}</div>
         </div>
       `;

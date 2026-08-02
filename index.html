@@ -51,13 +51,22 @@
           <select class="select" id="bet-bookmaker" required></select>
         </div>
 
-        <div class="field">
-          <label class="field-label">Categoria</label>
-          <select class="select" id="bet-category" required>
-            <option value="NBA">NBA</option>
-            <option value="Futebol">Futebol</option>
-            <option value="Outros">Outros</option>
-          </select>
+        <div class="field-grid-2">
+          <div class="field">
+            <label class="field-label">Esporte</label>
+            <select class="select" id="bet-sport" required>
+              <option value="Basquete">🏀 Basquete</option>
+              <option value="Futebol">⚽ Futebol</option>
+              <option value="Outros">🎯 Outros</option>
+            </select>
+          </div>
+          <div class="field" id="league-field">
+            <label class="field-label">Liga</label>
+            <select class="select" id="bet-league">
+              <option value="NBA">NBA</option>
+              <option value="WNBA">WNBA</option>
+            </select>
+          </div>
         </div>
 
         <div class="field">
@@ -109,7 +118,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=13"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const user = await window.authStateReady;
@@ -130,6 +139,15 @@
 
       // Set today's date
       document.getElementById('bet-date').valueAsDate = new Date();
+
+      // Show/hide league field based on sport selection
+      const sportSelect = document.getElementById('bet-sport');
+      const leagueField = document.getElementById('league-field');
+      function toggleLeagueField() {
+        leagueField.style.display = sportSelect.value === 'Basquete' ? '' : 'none';
+      }
+      sportSelect.addEventListener('change', toggleLeagueField);
+      toggleLeagueField();
 
       // Populate bookmakers
       if (db.bookmakers.length === 0) {
@@ -264,7 +282,8 @@
           db.bets.push({
             id: generateId(),
             bookmakerId: bkId,
-            category: document.getElementById('bet-category').value,
+            sport: document.getElementById('bet-sport').value,
+            league: document.getElementById('bet-sport').value === 'Basquete' ? document.getElementById('bet-league').value : '',
             event: document.getElementById('bet-event').value,
             odd: parseFloat(oddInput.value.replace(',', '.')) || 0,
             stake: stake,
@@ -519,6 +538,22 @@
         if (desc) {
           document.getElementById('bet-event').value = desc;
         }
+
+        // 6. Auto-detect Sport / League from OCR text
+        const sportEl = document.getElementById('bet-sport');
+        const leagueEl = document.getElementById('bet-league');
+        if (textLower.includes('nba') && !textLower.includes('wnba')) {
+          sportEl.value = 'Basquete';
+          leagueEl.value = 'NBA';
+        } else if (textLower.includes('wnba')) {
+          sportEl.value = 'Basquete';
+          leagueEl.value = 'WNBA';
+        } else if (textLower.includes('futebol') || textLower.includes('campeonato') || textLower.includes('liga') || textLower.includes('premier') || textLower.includes('libertadores') || textLower.includes('copa')) {
+          sportEl.value = 'Futebol';
+        } else {
+          sportEl.value = 'Outros';
+        }
+        toggleLeagueField();
 
         updateFeedback();
       }
