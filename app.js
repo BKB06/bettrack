@@ -59,6 +59,15 @@ async function loadDb() {
     const localToday = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
     if (db.dailyLogins.date !== localToday) {
       db.dailyLogins = { date: localToday, logins: {} };
+      // Clean up stale lastLoginBeforeUndo from previous day
+      // so today's undo correctly restores to yesterday's login
+      if (Array.isArray(db.bookmakers)) {
+        db.bookmakers.forEach(bk => {
+          if (bk && bk.lastLoginBeforeUndo !== undefined) {
+            delete bk.lastLoginBeforeUndo;
+          }
+        });
+      }
     }
 
     if (!Array.isArray(db.bookmakers)) db.bookmakers = [];

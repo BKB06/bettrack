@@ -652,6 +652,11 @@
       let _feitos = [];
 
       function renderLogins() {
+        // Save scroll position before re-rendering
+        const mainEl = document.getElementById('app-main');
+        const savedMainScroll = mainEl ? mainEl.scrollTop : 0;
+        const savedWindowScroll = window.scrollY;
+
         if (db.bookmakers.length === 0) {
           document.getElementById('logins-header').innerHTML = '';
           document.getElementById('logins-toolbar').innerHTML = '';
@@ -785,6 +790,9 @@
         // Now render the lists
         renderLists();
 
+        // Restore scroll position after re-rendering
+        if (mainEl) mainEl.scrollTop = savedMainScroll;
+        window.scrollTo(0, savedWindowScroll);
       }
 
       // Renders only the kanban lists (called by search without rebuilding toolbar)
