@@ -557,8 +557,29 @@
       const pendentesEl = document.getElementById('kanban-pendentes');
       const feitosEl = document.getElementById('kanban-feitos');
 
+      // ─── Helper: save/restore scroll across re-renders ──────────
+      function saveScroll() {
+        if (document.activeElement) document.activeElement.blur();
+        return {
+          win: window.scrollY,
+          doc: document.documentElement.scrollTop,
+          body: document.body.scrollTop,
+          main: document.getElementById('app-main')?.scrollTop || 0
+        };
+      }
+      function restoreScroll(s) {
+        setTimeout(() => {
+          const mainEl = document.getElementById('app-main');
+          if (mainEl) mainEl.scrollTop = s.main;
+          window.scrollTo(0, s.win);
+          document.documentElement.scrollTop = s.doc;
+          document.body.scrollTop = s.body;
+        }, 0);
+      }
+
       // ─── doLogin: only records time if NOT already logged today ──
       window.doLogin = async (id) => {
+        const scroll = saveScroll();
         db = await loadDb();
         // Only set time if not already logged (preserves original login time)
         if (!db.dailyLogins.logins[id]) {
@@ -574,9 +595,11 @@
           await saveDb(db);
         }
         renderLogins();
+        restoreScroll(scroll);
       };
 
       window.undoLogin = async (id) => {
+        const scroll = saveScroll();
         db = await loadDb();
         const bk = db.bookmakers.find(b => b.id === id);
         if (bk) {
@@ -600,9 +623,11 @@
         delete db.dailyLogins.logins[id];
         await saveDb(db);
         renderLogins();
+        restoreScroll(scroll);
       };
 
       window.doAllLogins = async () => {
+        const scroll = saveScroll();
         db = await loadDb();
         const now = new Date();
         const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -618,6 +643,7 @@
         });
         await saveDb(db);
         renderLogins();
+        restoreScroll(scroll);
       };
 
       window.setFilter = (filter) => {
@@ -652,10 +678,17 @@
       let _feitos = [];
 
       function renderLogins() {
-        // Save scroll position before re-rendering
+        // Save scroll positions of ALL possible scrollable containers
         const mainEl = document.getElementById('app-main');
         const savedMainScroll = mainEl ? mainEl.scrollTop : 0;
         const savedWindowScroll = window.scrollY;
+        const savedDocScroll = document.documentElement.scrollTop;
+        const savedBodyScroll = document.body.scrollTop;
+        // Save kanban inner list scrolls
+        const kanbanPendList = document.querySelector('#kanban-pendentes .kanban-items-list');
+        const kanbanFeitosList = document.querySelector('#kanban-feitos .kanban-items-list');
+        const savedPendScroll = kanbanPendList ? kanbanPendList.scrollTop : 0;
+        const savedFeitosScroll = kanbanFeitosList ? kanbanFeitosList.scrollTop : 0;
 
         if (db.bookmakers.length === 0) {
           document.getElementById('logins-header').innerHTML = '';
@@ -790,9 +823,18 @@
         // Now render the lists
         renderLists();
 
-        // Restore scroll position after re-rendering
-        if (mainEl) mainEl.scrollTop = savedMainScroll;
-        window.scrollTo(0, savedWindowScroll);
+        // Restore scroll positions after DOM update
+        requestAnimationFrame(() => {
+          if (mainEl) mainEl.scrollTop = savedMainScroll;
+          window.scrollTo(0, savedWindowScroll);
+          document.documentElement.scrollTop = savedDocScroll;
+          document.body.scrollTop = savedBodyScroll;
+          // Restore kanban inner list scrolls
+          const newPendList = document.querySelector('#kanban-pendentes .kanban-items-list');
+          const newFeitosList = document.querySelector('#kanban-feitos .kanban-items-list');
+          if (newPendList) newPendList.scrollTop = savedPendScroll;
+          if (newFeitosList) newFeitosList.scrollTop = savedFeitosScroll;
+        });
       }
 
       // Renders only the kanban lists (called by search without rebuilding toolbar)
