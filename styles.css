@@ -9,6 +9,8 @@
 :root {
   /* Backgrounds */
   --bg:           #07090f;
+  --bg-body:      #07090f;
+  --bg-card:      #10151f;
   --surface:      #0d1018;
   --card:         #10151f;
   --card2:        #141a26;
@@ -36,13 +38,15 @@
   --blue:         #4da8ff;
   --blue-bg:      rgba(77, 168, 255, 0.08);
   --blue-border:  rgba(77, 168, 255, 0.3);
+  --accent:       #4da8ff;
+  --accent-bg:    rgba(77, 168, 255, 0.12);
 
   --purple:       #a78bfa;
   --purple-bg:    rgba(167, 139, 250, 0.08);
 
   /* Text */
   --text:         #eaf0ff;
-  --muted:        #4a5a7a;
+  --muted:        #8c9ab8;
 
   /* Typography */
   --font:         'Outfit', sans-serif;
@@ -350,6 +354,15 @@ textarea {
   background: var(--border);
 }
 
+.btn--secondary {
+  background: var(--card2);
+  color: var(--text);
+  border: 1px solid var(--border-light);
+}
+.btn--secondary:hover:not(:disabled) {
+  background: var(--border);
+}
+
 /* ── win (confirmar acerto) */
 .btn--win {
   background: var(--green-bg);
@@ -487,7 +500,7 @@ input[type="number"] {
   font-family: var(--font);
   box-sizing: border-box;
   outline: none;
-  cursor: pointer;
+  cursor: default;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%234a5a7a' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -736,6 +749,9 @@ input[type="number"] {
   padding: 4px 2px;
   min-height: 46px;
   gap: 2px;
+}
+button.cal-cell {
+  cursor: pointer;
 }
 
 /* Estado lucrativo */
@@ -1140,6 +1156,7 @@ input[type="number"] {
 .color-swatch {
   width: 28px;
   height: 28px;
+  padding: 0;
   border-radius: 50%;
   cursor: pointer;
   border: 3px solid transparent;
@@ -1161,6 +1178,13 @@ input[type="number"] {
   padding: var(--space-4);
   margin-bottom: 14px;
 }
+.bank-card--button {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .bank-card__label {
   font-size: 10px;
   color: var(--muted);
@@ -1169,6 +1193,7 @@ input[type="number"] {
   margin-bottom: 4px;
 }
 .bank-card__value {
+  display: block;
   font-size: 22px;
   font-weight: 800;
   font-family: var(--mono);
@@ -1468,7 +1493,7 @@ input[type="number"] {
   display: none;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1180px) {
   /* Ocultar mobile nav e header nativo do mobile (se existirem na estrutura global) */
   .mobile-nav,
   .mobile-header {
@@ -1721,252 +1746,37 @@ input[type="number"] {
   .mini-card .value { font-size: 20px; }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   LOGIN TRACKER
-   ═══════════════════════════════════════════════════════════════ */
-
-.login-tracker {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.status-dot-small {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
 }
 
-.login-progress-bar {
-  height: 4px;
-  background: var(--surface);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  margin-top: 4px;
-}
-
-.login-progress-fill {
-  height: 100%;
-  background: var(--green);
-  width: 0;
-  transition: width 0.3s ease;
-}
-
-.login-kanban {
-  display: flex;
-  gap: 16px;
-  flex-direction: column;
-}
-
-@media (min-width: 768px) {
-  .login-kanban {
-    flex-direction: row;
-  }
-}
-
-.login-column {
-  flex: 1;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.login-column__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 12px;
-  border-bottom: 1px solid;
-  margin-bottom: 4px;
-}
-
-.login-column__title {
-  font-weight: 800;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.login-column__count {
-  font-family: var(--mono);
-  font-weight: 800;
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-}
-
-.login-column__list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 100px;
-}
-
-.login-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: stretch;
-  overflow: hidden;
-  transition: all 0.2s ease;
+.sidebar-logout {
+  width: 100%;
+  padding: 0;
+  color: var(--red);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
-.login-card:hover {
-  border-color: var(--border-light);
-  transform: translateY(-1px);
+/* Foco perceptível e consistente para navegação por teclado. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
 }
 
-.login-card--pending {
-  border-left: 3px solid transparent;
-}
-
-.login-card--logged {
-  border-left: 3px solid var(--green);
-}
-
-.login-card__content {
-  flex: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-}
-
-.login-card__left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.login-card__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.login-card__name {
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.login-card__right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.login-card__time {
-  font-family: var(--mono);
-  font-weight: 700;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.login-card__link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  border-left: 1px solid var(--border);
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 14px;
-  transition: background 0.15s, color 0.15s;
-}
-
-.login-card__link:hover {
-  background: var(--card2);
-  color: var(--text);
-}
-
-.login-footer {
-  margin-top: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-/* Logins Cards */
-.logins-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
-  margin-top: 24px;
-}
-.login-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition: all 0.2s ease;
-  min-height: 140px;
-  position: relative;
-  overflow: hidden;
-}
-.login-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-.login-card--done {
-  background: rgba(35, 197, 94, 0.05);
-  border-color: rgba(35, 197, 94, 0.2);
-}
-.login-card__header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  z-index: 2;
-}
-.login-card__color {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-}
-.login-card__title {
-  font-weight: 600;
-  font-size: 16px;
-  color: var(--text);
-}
-.login-card__status {
-  font-size: 13px;
-  margin-bottom: 16px;
-  z-index: 2;
-}
-.login-card__btn {
-  width: 100%;
-  z-index: 2;
-}
-.login-card__bg-icon {
-  position: absolute;
-  right: -10px;
-  bottom: -10px;
-  font-size: 80px;
-  opacity: 0.03;
-  z-index: 1;
-  pointer-events: none;
-}
-.login-card--done .login-card__bg-icon {
-  opacity: 0.1;
-  color: var(--green);
-}
-.progress-ring-container {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  background: var(--bg-card);
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  margin-bottom: 32px;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

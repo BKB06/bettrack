@@ -1,0 +1,18 @@
+name: Sugerir melhoria
+description: Proponha uma funcionalidade ou ajuste de experiência.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Qual necessidade esta melhoria resolve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Solução sugerida
+      description: Explique o fluxo desejado e possíveis alternativas.
+    validations:
+      required: true

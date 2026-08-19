@@ -1,258 +1,130 @@
 /**
- * BetTracker - Data Layer & App Logic
- * Uses localStorage for persistence.
+ * BetTrack — integração com Firebase e composição da interface compartilhada.
+ *
+ * Regras puras e normalização de dados vivem em `core.js`; este arquivo deve se
+ * limitar a coordenar autenticação, persistência e DOM.
  */
 
-const DB_KEY = 'bettracker_db';
+if (!window.BetTrackCore) {
+  throw new Error('core.js precisa ser carregado antes de app.js.');
+}
 
-const defaultDb = {
-  mercadoPago: 90.21,
-  bookmakers: [
-    { id: '1', name: 'Betano', color: '#ff3c3c', balance: 0.21 },
-    { id: '2', name: 'Bet365', color: '#00e87a', balance: 0 }
-  ],
-  bets: [],
-  cashflow: [],
-  dailyLogins: { date: '', logins: {} }
-};
+const {
+  calculateBetReversalDebit,
+  calculateBetSettlement,
+  calculateExposed,
+  calculatePatrimonio,
+  calculateStats,
+  createDefaultDb,
+  escapeHtml,
+  escapeJsString,
+  formatMoney,
+  generateId,
+  getDefaultBookmakerUrl,
+  getLocalDateKey,
+  normalizeDate,
+  normalizeDb,
+  normalizeExternalUrl,
+  roundMoney,
+  sanitizeColor,
+  toFiniteNumber
+} = window.BetTrackCore;
+
+const DB_KEY = 'bettracker_db';
 
 // ─── DB FUNCTIONS ──────────────────────────────────────────────
 
 async function loadDb() {
   await window.authStateReady;
   if (!window.currentUser) {
-    return { ...defaultDb };
+    return createDefaultDb();
   }
 
   const userId = window.currentUser.uid;
-  const docRef = fDb.collection('users').doc(userId);
+  const docRef = window.betTrackDb.collection('users').doc(userId);
   
   try {
-    const docSnap = await docRef.get();
-    let parsed = {};
+    const docSnapshot = await docRef.get();
+    let rawDb;
     
-    if (docSnap.exists) {
-      parsed = docSnap.data();
+    if (docSnapshot.exists) {
+      rawDb = docSnapshot.data();
     } else {
-      // Automatic Migration from localStorage
-      const localData = localStorage.getItem('bettracker_db');
+      // Migração única para usuários da antiga versão baseada em localStorage.
+      const localData = localStorage.getItem(DB_KEY);
       if (localData) {
         try {
-          parsed = JSON.parse(localData);
-          console.log("Migrated data from localStorage to Firestore!");
-        } catch(e) {
-          parsed = { ...defaultDb };
+          rawDb = JSON.parse(localData);
+        } catch (error) {
+          console.warn('Os dados locais antigos não puderam ser migrados.', error);
+          rawDb = createDefaultDb();
         }
       } else {
-        parsed = { ...defaultDb };
-      }
-      await docRef.set(parsed);
-    }
-
-
-    let db = { ...defaultDb, ...parsed };
-    db.mercadoPago = Number(db.mercadoPago) || 0;
-    
-    if (!db.dailyLogins) db.dailyLogins = { date: '', logins: {} };
-    
-    const today = new Date();
-    const localToday = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    if (db.dailyLogins.date !== localToday) {
-      db.dailyLogins = { date: localToday, logins: {} };
-      // Clean up stale lastLoginBeforeUndo from previous day
-      // so today's undo correctly restores to yesterday's login
-      if (Array.isArray(db.bookmakers)) {
-        db.bookmakers.forEach(bk => {
-          if (bk && bk.lastLoginBeforeUndo !== undefined) {
-            delete bk.lastLoginBeforeUndo;
-          }
-        });
+        rawDb = createDefaultDb();
       }
     }
 
-    if (!Array.isArray(db.bookmakers)) db.bookmakers = [];
-    db.bookmakers = db.bookmakers.filter(bk => bk !== null && bk !== undefined);
-    
-    if (!Array.isArray(db.bets)) db.bets = [];
-    db.bets = db.bets.filter(b => b !== null && b !== undefined);
-    
-    if (!Array.isArray(db.cashflow)) db.cashflow = [];
-    db.cashflow = db.cashflow.filter(c => c !== null && c !== undefined);
+    const db = normalizeDb(rawDb);
 
-    if (db.bookmakers.length > 0) {
-      db.bookmakers.forEach(bk => {
-        if (bk.sportsBalance !== undefined || bk.casinoBalance !== undefined) {
-          bk.balance = (Number(bk.sportsBalance) || 0) + (Number(bk.casinoBalance) || 0);
-          delete bk.sportsBalance;
-          delete bk.casinoBalance;
-        }
-        if (bk.balance !== undefined) {
-          bk.balance = Number(bk.balance) || 0;
-        } else {
-          bk.balance = 0;
-        }
-      });
-    }
-
-    if (db.bets) {
-      db.bets.forEach(b => {
-        if (b.date && b.date.includes('/')) {
-          const parts = b.date.split('/');
-          if (parts.length === 3) {
-            b.date = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-          }
-        }
-        // Migrate old category field to sport + league
-        if (b.category && !b.sport) {
-          if (b.category === 'NBA') {
-            b.sport = 'Basquete';
-            b.league = 'NBA';
-          } else if (b.category === 'WNBA') {
-            b.sport = 'Basquete';
-            b.league = 'WNBA';
-          } else if (b.category === 'Futebol') {
-            b.sport = 'Futebol';
-            b.league = '';
-          } else {
-            b.sport = 'Outros';
-            b.league = '';
-          }
-          delete b.category;
-        }
-        // Ensure sport field always exists
-        if (!b.sport) {
-          b.sport = 'Outros';
-          b.league = b.league || '';
-        }
-      });
+    if (!docSnapshot.exists) {
+      await docRef.set(db);
     }
     
-    // Store globally for sync reads during UI rendering
+    // A interface compartilhada faz leituras síncronas deste snapshot normalizado.
+    window._dbLoadFailed = false;
     window._currentDb = db;
     renderShell();
     return db;
   } catch (error) {
-    console.error("Error loading DB from Firestore:", error);
-    alert("Erro ao carregar os dados. Verifique a internet e tente novamente.");
-    return { ...defaultDb };
+    console.error('Erro ao carregar dados do Firestore:', error);
+    alert('Erro ao carregar os dados. Verifique a internet e tente novamente.');
+    const fallbackDb = createDefaultDb();
+    // Impede que o estado de contingência sobrescreva dados reais numa gravação posterior.
+    window._dbLoadFailed = true;
+    window._currentDb = fallbackDb;
+    renderShell();
+    return fallbackDb;
   }
 }
 
 async function saveDb(db) {
-  window._currentDb = db;
-  if (!window.currentUser) return;
+  if (!window.currentUser || window._dbLoadFailed) {
+    const error = new Error('Não há uma sessão de dados válida para salvar.');
+    alert('Os dados não foram salvos porque a versão atual não pôde ser carregada. Atualize a página e tente novamente.');
+    throw error;
+  }
+
+  const normalizedDb = normalizeDb(db);
   const userId = window.currentUser.uid;
-  const docRef = fDb.collection('users').doc(userId);
+  const docRef = window.betTrackDb.collection('users').doc(userId);
   
   try {
-    await docRef.set(db);
+    await docRef.set(normalizedDb);
+    window._currentDb = normalizedDb;
     updateGlobalUI();
+    return normalizedDb;
   } catch (error) {
-    console.error("Error saving DB to Firestore:", error);
-    alert("Erro ao salvar os dados. " + error.message);
+    console.error('Erro ao salvar dados no Firestore:', error);
+    alert('Erro ao salvar os dados. Tente novamente.');
+    throw error;
   }
 }
 
-// ─── UTILS ─────────────────────────────────────────────────────
-
-function formatMoney(value) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-}
-
-function generateId() {
-  return Math.random().toString(36).substr(2, 9);
-}
-
-function getDefaultBookmakerUrl(name) {
-  const lowerName = name.toLowerCase();
-  if (lowerName.includes('betano')) return 'https://br.betano.com';
-  if (lowerName.includes('bet365')) return 'https://www.bet365.com';
-  if (lowerName.includes('pinnacle')) return 'https://www.pinnacle.com';
-  if (lowerName.includes('kto')) return 'https://www.kto.com';
-  if (lowerName.includes('betfair')) return 'https://www.betfair.com';
-  if (lowerName.includes('sportingbet')) return 'https://sports.sportingbet.com';
-  if (lowerName.includes('1xbet')) return 'https://1xbet.com';
-  if (lowerName.includes('estrelabet') || lowerName.includes('estrela bet')) return 'https://estrelabet.com';
-  if (lowerName.includes('novibet')) return 'https://www.novibet.com.br';
-  if (lowerName.includes('betdasorte') || lowerName.includes('bet da sorte') || lowerName.includes('bet dá sorte')) return 'https://www.betdasorte.com';
-  return '';
-}
-
-// ─── BUSINESS LOGIC ────────────────────────────────────────────
-
-function calculateExposed(db) {
-  return db.bets
-    .filter(b => b.status === 'pending' && !b.isFreebet)
-    .reduce((sum, b) => sum + Number(b.stake), 0);
-}
-
-function calculatePatrimonio(db) {
-  const mp = Number(db.mercadoPago) || 0;
-  const bkTotal = db.bookmakers.reduce((sum, bk) => sum + Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0)), 0);
-  const exposed = calculateExposed(db);
-  return mp + bkTotal + exposed;
-}
-
-function getTodayLogins(db) {
-  return db.dailyLogins.logins;
-}
-
-function markLogin(db, bookmakerId) {
-  const now = new Date();
-  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+/** Registra um check-in preservando o valor anterior para permitir desfazer. */
+function markLogin(db, bookmakerId, now = new Date()) {
   const bookmaker = db.bookmakers.find(bk => bk.id === bookmakerId);
-  if (bookmaker && bookmaker.lastLoginBeforeUndo === undefined) {
-    bookmaker.lastLoginBeforeUndo = bookmaker.lastLogin;
+  if (!bookmaker || db.dailyLogins.logins[bookmakerId]) return false;
+
+  if (bookmaker.lastLoginBeforeUndo === undefined) {
+    // `null` representa corretamente a ausência de valor no Firestore.
+    bookmaker.lastLoginBeforeUndo = bookmaker.lastLogin ?? null;
   }
-  db.dailyLogins.logins[bookmakerId] = time;
-  if (bookmaker) bookmaker.lastLogin = now.toISOString();
-}
 
-function unmarkLogin(db, bookmakerId) {
-  const bookmaker = db.bookmakers.find(bk => bk.id === bookmakerId);
-  if (bookmaker) {
-    if (bookmaker.lastLoginBeforeUndo !== undefined) {
-      if (bookmaker.lastLoginBeforeUndo) {
-        bookmaker.lastLogin = bookmaker.lastLoginBeforeUndo;
-      } else {
-        delete bookmaker.lastLogin;
-      }
-      delete bookmaker.lastLoginBeforeUndo;
-    } else if (db.dailyLogins.previousLastLogins && bookmakerId in db.dailyLogins.previousLastLogins) {
-      const previousLastLogin = db.dailyLogins.previousLastLogins[bookmakerId];
-      if (previousLastLogin) {
-        bookmaker.lastLogin = previousLastLogin;
-      } else {
-        delete bookmaker.lastLogin;
-      }
-      delete db.dailyLogins.previousLastLogins[bookmakerId];
-    }
-  }
-  delete db.dailyLogins.logins[bookmakerId];
-}
-
-// ─── GLOBAL STATS CALCULATIONS ─────────────────────────────────
-
-function calculateStats(db) {
-  const settled = db.bets.filter(b => b.status === 'won' || b.status === 'lost');
-  const won = settled.filter(b => b.status === 'won').length;
-  const lost = settled.filter(b => b.status === 'lost').length;
-  const totalSettled = won + lost;
-  
-  const acerto = totalSettled > 0 ? ((won / totalSettled) * 100).toFixed(0) + '%' : '0%';
-  
-  const pending = db.bets.filter(b => b.status === 'pending');
-  const abertasCount = pending.length;
-  
-  const lucro = settled.reduce((sum, b) => sum + (Number(b.profit) || 0), 0);
-  const pnlClass = lucro >= 0 ? 'green' : 'red';
-  const pnlFormatted = (lucro >= 0 ? '+' : '') + formatMoney(lucro);
-  
-  const totalStake = settled.reduce((sum, b) => sum + Number(b.stake), 0);
-  const roi = totalStake > 0 ? ((lucro / totalStake) * 100).toFixed(1) + '%' : '0.0%';
-  const roiClass = lucro >= 0 ? 'green' : 'red';
-
-  return { acerto, abertasCount, lucro, pnlFormatted, pnlClass, roi, roiClass, totalStake };
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  db.dailyLogins.logins[bookmakerId] = `${hours}:${minutes}`;
+  bookmaker.lastLogin = now.toISOString();
+  return true;
 }
 
 // ─── GLOBAL CALENDAR LOGIC ─────────────────────────────────────
@@ -287,7 +159,7 @@ function renderGlobalCalendar() {
   let monthStaked = 0;
   let monthPnL = 0;
 
-  // Group bets by date
+  // Consolida uma vez para manter o calendário linear mesmo com muitos registros.
   const dailyProfit = {};
   db.bets.filter(b => b.status !== 'pending').forEach(b => {
     let dStr = b.date ? b.date.trim() : '';
@@ -302,12 +174,12 @@ function renderGlobalCalendar() {
     const bMonth = parseInt(dStr.split('-')[1]) - 1;
     
     if (bYear === year && bMonth === month) {
-      monthStaked += b.stake;
-      monthPnL += b.profit;
+      monthStaked += toFiniteNumber(b.stake);
+      monthPnL += toFiniteNumber(b.profit);
     }
     const key = dStr;
     if (!dailyProfit[key]) dailyProfit[key] = 0;
-    dailyProfit[key] += b.profit;
+    dailyProfit[key] += toFiniteNumber(b.profit);
   });
 
   const infoEl = document.getElementById('global-cal-month-info');
@@ -321,7 +193,7 @@ function renderGlobalCalendar() {
     grid.innerHTML += `<div class="cal-cell" style="border-color:transparent;"></div>`;
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateKey();
   for (let i = 1; i <= daysInMonth; i++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
     let cellClass = 'cal-cell';
@@ -348,14 +220,14 @@ function renderGlobalCalendar() {
           ? `onclick="filterByDate('${dateStr}')"`
           : `onclick="location.href='historico.html?date=${dateStr}'"`)
       : '';
-    const cellCursor = hasData ? 'cursor:pointer;' : 'cursor:default;';
-    
-    // Check if this date is currently selected in historico
+    // O filtro também é refletido no calendário da barra lateral do histórico.
     if (window.selectedDateFilter === dateStr) {
       cellClass += ' cal-cell--selected';
     }
 
-    grid.innerHTML += `<div class="${cellClass}" style="${cellCursor}" ${clickHandler}>${i}${pnlHtml}</div>`;
+    grid.innerHTML += hasData
+      ? `<button type="button" class="${cellClass}" ${clickHandler} aria-label="Ver apostas de ${String(i).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}">${i}${pnlHtml}</button>`
+      : `<div class="${cellClass}" aria-hidden="true">${i}${pnlHtml}</div>`;
   }
 }
 
@@ -388,7 +260,9 @@ function updateGlobalUI() {
       })
       .map(bk => {
       const total = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0));
-      return `<div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:${bk.color}"></div> ${bk.name}</span> <span class="value">${formatMoney(total)}</span></div>`;
+      const color = sanitizeColor(bk.color);
+      const name = escapeHtml(bk.name);
+      return `<div class="sidebar-bk-row"><span class="name"><span class="status-dot-small" style="background:${color}"></span> ${name}</span> <span class="value">${formatMoney(total)}</span></div>`;
     }).join('');
 
     const sidebarSection = sidebarEl.querySelector('.desktop-sidebar-section:nth-of-type(1)');
@@ -397,9 +271,9 @@ function updateGlobalUI() {
         <h3>Saldo Por Casa</h3>
         ${bkListHtml}
         
-      <div class="sidebar-bk-row" style="margin-top: 16px; cursor: pointer;" onclick="logout()">
+      <button type="button" class="sidebar-bk-row sidebar-logout" onclick="logout()">
         <span class="name" style="color: var(--red);">Sair (Logout)</span>
-      </div>
+      </button>
 
       `;
     }
@@ -418,10 +292,13 @@ function updateGlobalUI() {
     let abertasHtml = '';
     pendingBets.slice(0, 5).forEach(b => {
       const freebetMarker = b.isFreebet ? ' <span style="color:#ffb800;">(Freebet)</span>' : '';
+      const sport = escapeHtml(b.sport || 'Outros');
+      const league = b.league ? ` · ${escapeHtml(b.league)}` : '';
+      const event = escapeHtml(b.event || 'Evento sem descrição');
       abertasHtml += `
         <div style="font-size: 13px; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-          <div style="color:var(--muted); margin-bottom:2px;">${b.sport || 'Outros'}${b.league ? ' · ' + b.league : ''} • Odd ${b.odd}${freebetMarker}</div>
-          <div style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.event}</div>
+          <div style="color:var(--muted); margin-bottom:2px;">${sport}${league} • Odd ${toFiniteNumber(b.odd).toFixed(2)}${freebetMarker}</div>
+          <div style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${event}</div>
         </div>
       `;
     });
@@ -435,12 +312,12 @@ function updateGlobalUI() {
     rightPanelEl.innerHTML = `
       <div style="margin-bottom: 24px;">
         <div class="cal-nav" style="margin-bottom: 8px;">
-          <button class="btn btn--icon" onclick="window.prevMonth()" style="border-radius:var(--radius-lg); width:24px; height:24px; font-size:12px; padding:0;">‹</button>
+          <button type="button" class="btn btn--icon" onclick="window.prevMonth()" aria-label="Mês anterior" style="border-radius:var(--radius-lg); width:24px; height:24px; font-size:12px; padding:0;">‹</button>
           <div class="cal-nav__center">
             <div class="cal-nav__month" id="global-cal-month-name" style="font-size:16px; font-weight:700;">Mai 2026</div>
             <div class="cal-nav__info" id="global-cal-month-info" style="white-space:nowrap;">Apostado: <span class="c-gold">R$ 0,00</span> · PnL: <span class="c-green">+R$ 0,00</span></div>
           </div>
-          <button class="btn btn--icon" onclick="window.nextMonth()" style="border-radius:var(--radius-lg); width:24px; height:24px; font-size:12px; padding:0;">›</button>
+          <button type="button" class="btn btn--icon" onclick="window.nextMonth()" aria-label="Próximo mês" style="border-radius:var(--radius-lg); width:24px; height:24px; font-size:12px; padding:0;">›</button>
         </div>
         <div class="cal-headers" style="font-size:10px; margin-bottom:4px;">
           <div class="cal-header-cell">D</div>
@@ -541,17 +418,19 @@ function renderShell() {
       })
       .map(bk => {
       const total = Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0));
-      return `<div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:${bk.color}"></div> ${bk.name}</span> <span class="value">${formatMoney(total)}</span></div>`;
+      const color = sanitizeColor(bk.color);
+      const name = escapeHtml(bk.name);
+      return `<div class="sidebar-bk-row"><span class="name"><span class="status-dot-small" style="background:${color}"></span> ${name}</span> <span class="value">${formatMoney(total)}</span></div>`;
     }).join('');
 
     sidebarEl.innerHTML = `
-      <nav class="desktop-nav">
-        <a href="index.html" class="desktop-nav-item desktop-nav-item--primary">+ Nova Aposta</a>
-        <a href="historico.html" class="desktop-nav-item ${currentPage === 'historico.html' ? 'active' : ''}">≡ Histórico</a>
-        <a href="fundos.html" class="desktop-nav-item ${currentPage === 'fundos.html' ? 'active' : ''}">⇄ Transferência</a>
-        <a href="casas.html" class="desktop-nav-item ${currentPage === 'casas.html' ? 'active' : ''}">◈ Casas</a>
-        <a href="logins.html" class="desktop-nav-item ${currentPage === 'logins.html' ? 'active' : ''}">✓ Logins</a>
-        <a href="relatorio.html" class="desktop-nav-item ${currentPage === 'relatorio.html' ? 'active' : ''}">↗ Relatório</a>
+      <nav class="desktop-nav" aria-label="Navegação principal">
+        <a href="index.html" class="desktop-nav-item desktop-nav-item--primary" ${currentPage === 'index.html' ? 'aria-current="page"' : ''}>+ Nova Aposta</a>
+        <a href="historico.html" class="desktop-nav-item ${currentPage === 'historico.html' ? 'active' : ''}" ${currentPage === 'historico.html' ? 'aria-current="page"' : ''}>≡ Histórico</a>
+        <a href="fundos.html" class="desktop-nav-item ${currentPage === 'fundos.html' ? 'active' : ''}" ${currentPage === 'fundos.html' ? 'aria-current="page"' : ''}>⇄ Transferência</a>
+        <a href="casas.html" class="desktop-nav-item ${currentPage === 'casas.html' ? 'active' : ''}" ${currentPage === 'casas.html' ? 'aria-current="page"' : ''}>◈ Casas</a>
+        <a href="logins.html" class="desktop-nav-item ${currentPage === 'logins.html' ? 'active' : ''}" ${currentPage === 'logins.html' ? 'aria-current="page"' : ''}>✓ Logins</a>
+        <a href="relatorio.html" class="desktop-nav-item ${currentPage === 'relatorio.html' ? 'active' : ''}" ${currentPage === 'relatorio.html' ? 'aria-current="page"' : ''}>↗ Relatório</a>
       </nav>
 
       <div class="desktop-sidebar-section">
@@ -561,7 +440,7 @@ function renderShell() {
 
       <div class="desktop-sidebar-section">
         <h3>Banco</h3>
-        <div class="sidebar-bk-row"><span class="name"><div style="width:8px; height:8px; border-radius:50%; background:var(--blue)"></div> Mercado Pago</span> <span class="value" id="sidebar-banco-val" style="color:var(--blue)">${formatMoney(db.mercadoPago)}</span></div>
+        <div class="sidebar-bk-row"><span class="name"><span class="status-dot-small" style="background:var(--blue)"></span> Mercado Pago</span> <span class="value" id="sidebar-banco-val" style="color:var(--blue)">${formatMoney(db.mercadoPago)}</span></div>
       </div>
 
       <div class="desktop-sidebar-section">
@@ -569,9 +448,7 @@ function renderShell() {
         <div class="sidebar-bk-row"><span class="name">⚡ Exposto</span> <span class="value" id="sidebar-exposto-val" style="color:var(--gold)">${formatMoney(calculateExposed(db))}</span></div>
       </div>
 
-      <div class="desktop-sidebar-section" style="margin-top: 32px; cursor: pointer;" onclick="logout()">
-        <h3 style="color: var(--red);">Sair (Logout)</h3>
-      </div>
+      <button type="button" class="desktop-sidebar-section sidebar-logout" onclick="logout()">Sair (Logout)</button>
     `;
   }
 
@@ -579,27 +456,27 @@ function renderShell() {
   const mobileNavEl = document.getElementById('global-mobile-nav');
   if (mobileNavEl) {
     mobileNavEl.innerHTML = `
-      <button class="mobile-nav-item ${currentPage === 'index.html' ? 'active' : ''}" onclick="location.href='index.html'">
+      <button type="button" class="mobile-nav-item ${currentPage === 'index.html' ? 'active' : ''}" onclick="location.href='index.html'" ${currentPage === 'index.html' ? 'aria-current="page"' : ''}>
         <span class="mobile-nav-item__icon">+</span>
         <span class="mobile-nav-item__text">Apostar</span>
       </button>
-      <button class="mobile-nav-item ${currentPage === 'historico.html' ? 'active' : ''}" onclick="location.href='historico.html'">
+      <button type="button" class="mobile-nav-item ${currentPage === 'historico.html' ? 'active' : ''}" onclick="location.href='historico.html'" ${currentPage === 'historico.html' ? 'aria-current="page"' : ''}>
         <span class="mobile-nav-item__icon">≡</span>
         <span class="mobile-nav-item__text">Histórico</span>
       </button>
-      <button class="mobile-nav-item ${currentPage === 'fundos.html' ? 'active' : ''}" onclick="location.href='fundos.html'">
+      <button type="button" class="mobile-nav-item ${currentPage === 'fundos.html' ? 'active' : ''}" onclick="location.href='fundos.html'" ${currentPage === 'fundos.html' ? 'aria-current="page"' : ''}>
         <span class="mobile-nav-item__icon">⇄</span>
         <span class="mobile-nav-item__text">Fundos</span>
       </button>
-      <button class="mobile-nav-item ${currentPage === 'casas.html' ? 'active' : ''}" onclick="location.href='casas.html'">
+      <button type="button" class="mobile-nav-item ${currentPage === 'casas.html' ? 'active' : ''}" onclick="location.href='casas.html'" ${currentPage === 'casas.html' ? 'aria-current="page"' : ''}>
         <span class="mobile-nav-item__icon">◈</span>
         <span class="mobile-nav-item__text">Casas</span>
       </button>
-      <button class="mobile-nav-item ${currentPage === 'relatorio.html' ? 'active' : ''}" onclick="location.href='relatorio.html'">
+      <button type="button" class="mobile-nav-item ${currentPage === 'relatorio.html' ? 'active' : ''}" onclick="location.href='relatorio.html'" ${currentPage === 'relatorio.html' ? 'aria-current="page"' : ''}>
         <span class="mobile-nav-item__icon">↗</span>
         <span class="mobile-nav-item__text">Relatório</span>
       </button>
-      <button class="mobile-nav-item ${currentPage === 'logins.html' ? 'active' : ''}" onclick="location.href='logins.html'">
+      <button type="button" class="mobile-nav-item ${currentPage === 'logins.html' ? 'active' : ''}" onclick="location.href='logins.html'" ${currentPage === 'logins.html' ? 'aria-current="page"' : ''}>
         <span class="mobile-nav-item__icon">✓</span>
         <span class="mobile-nav-item__text">Logins</span>
       </button>
@@ -642,35 +519,3 @@ function renderShell() {
 
   updateGlobalUI();
 }
-
-// Initialize on DOM load
-
-
-// Update automatically if user changes data in another tab
-window.addEventListener('storage', (e) => {
-  if (e.key === 'bettracker_db') {
-    renderShell(); // Re-render the shell to reflect changes instantly
-    
-    // If we're on the index page, ensure the dropdown reflects new balances
-    const bkSelect = document.getElementById('bet-bookmaker');
-    if (bkSelect) {
-      const db = window._currentDb;
-      const currentSelected = bkSelect.value;
-      bkSelect.innerHTML = '';
-      db.bookmakers.forEach(bk => {
-        const opt = document.createElement('option');
-        if (bk) {
-          opt.value = bk.id;
-          opt.textContent = `${bk.name} (Saldo: R$ ${Number(bk.balance !== undefined ? bk.balance : (bk.sportsBalance || 0)).toFixed(2)})`;
-        }
-        bkSelect.appendChild(opt);
-      });
-      if (currentSelected) bkSelect.value = currentSelected;
-      
-      // Update form feedback just in case the balance dropped below the typed stake
-      if (typeof window.updateFeedback === 'function') {
-        window.updateFeedback();
-      }
-    }
-  }
-});

@@ -2,9 +2,12 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Analise o desempenho, ROI e evolução da sua banca de apostas.">
+  <meta name="theme-color" content="#07090f">
   <title>BetTracker - Relatório</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   
@@ -15,7 +18,7 @@
     <div style="font-size: 48px; margin-bottom: 16px;">🎯</div>
     <h1 style="margin-bottom: 8px;">BetTracker</h1>
     <p style="color: var(--muted); margin-bottom: 24px;">Faça login para acessar suas apostas na nuvem.</p>
-    <button class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
+    <button type="button" class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"/></svg>
       Entrar com Google
     </button>
@@ -50,15 +53,15 @@
 
       <!-- Sport Filter -->
       <div class="filter-bar" id="sport-filter-bar" style="margin-bottom: 16px;">
-        <button class="filter-btn active" data-sport="all">Todos</button>
-        <button class="filter-btn" data-sport="Basquete">🏀 Basquete</button>
-        <button class="filter-btn" data-sport="Futebol">⚽ Futebol</button>
-        <button class="filter-btn" data-sport="Outros">🎯 Outros</button>
+        <button type="button" class="filter-btn active" data-sport="all" aria-pressed="true">Todos</button>
+        <button type="button" class="filter-btn" data-sport="Basquete" aria-pressed="false">🏀 Basquete</button>
+        <button type="button" class="filter-btn" data-sport="Futebol" aria-pressed="false">⚽ Futebol</button>
+        <button type="button" class="filter-btn" data-sport="Outros" aria-pressed="false">🎯 Outros</button>
       </div>
       <div class="filter-bar" id="league-filter-bar" style="margin-bottom: 16px; display: none;">
-        <button class="filter-btn active" data-league="all">Todas</button>
-        <button class="filter-btn" data-league="NBA">NBA</button>
-        <button class="filter-btn" data-league="WNBA">WNBA</button>
+        <button type="button" class="filter-btn active" data-league="all" aria-pressed="true">Todas</button>
+        <button type="button" class="filter-btn" data-league="NBA" aria-pressed="false">NBA</button>
+        <button type="button" class="filter-btn" data-league="WNBA" aria-pressed="false">WNBA</button>
       </div>
 
       <!-- Report List -->
@@ -133,7 +136,7 @@
 
       <aside class="desktop-right" id="global-right-panel"></aside>
     </div>
-    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+    <nav class="mobile-nav" id="global-mobile-nav" aria-label="Navegação móvel"></nav>
   </div>
 
   
@@ -142,8 +145,10 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
+  <script src="firebase-client.js"></script>
 
-  <script src="app.js?v=13"></script>
+  <script src="core.js"></script>
+  <script src="app.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const user = await window.authStateReady;
@@ -250,13 +255,23 @@
       // Sport filter events
       document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
-          e.target.classList.add('active');
-          activeSportFilter = e.target.dataset.sport;
+          document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(button => {
+            button.classList.remove('active');
+            button.setAttribute('aria-pressed', 'false');
+          });
+          e.currentTarget.classList.add('active');
+          e.currentTarget.setAttribute('aria-pressed', 'true');
+          activeSportFilter = e.currentTarget.dataset.sport;
           activeLeagueFilter = 'all';
-          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(button => {
+            button.classList.remove('active');
+            button.setAttribute('aria-pressed', 'false');
+          });
           const allLeagueBtn = document.querySelector('#league-filter-bar .filter-btn[data-league="all"]');
-          if (allLeagueBtn) allLeagueBtn.classList.add('active');
+          if (allLeagueBtn) {
+            allLeagueBtn.classList.add('active');
+            allLeagueBtn.setAttribute('aria-pressed', 'true');
+          }
           document.getElementById('league-filter-bar').style.display = activeSportFilter === 'Basquete' ? '' : 'none';
           renderReport();
         });
@@ -265,9 +280,13 @@
       // League filter events
       document.querySelectorAll('#league-filter-bar .filter-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
-          e.target.classList.add('active');
-          activeLeagueFilter = e.target.dataset.league;
+          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(button => {
+            button.classList.remove('active');
+            button.setAttribute('aria-pressed', 'false');
+          });
+          e.currentTarget.classList.add('active');
+          e.currentTarget.setAttribute('aria-pressed', 'true');
+          activeLeagueFilter = e.currentTarget.dataset.league;
           renderReport();
         });
       });

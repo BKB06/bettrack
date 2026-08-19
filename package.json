@@ -1,0 +1,18 @@
+{
+  "name": "bettrack",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gerenciador pessoal de banca e apostas esportivas.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:ci": "node scripts/build.mjs --allow-example",
+    "check": "node scripts/validate.mjs",
+    "dev": "npm run build && node scripts/serve.mjs",
+    "test": "node tests/run.cjs",
+    "validate": "npm run check && npm test && npm run build:ci"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
