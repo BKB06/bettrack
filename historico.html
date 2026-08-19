@@ -2,9 +2,12 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Consulte, filtre e liquide seu histórico de apostas esportivas.">
+  <meta name="theme-color" content="#07090f">
   <title>BetTracker - Histórico</title>
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   
@@ -15,7 +18,7 @@
     <div style="font-size: 48px; margin-bottom: 16px;">🎯</div>
     <h1 style="margin-bottom: 8px;">BetTracker</h1>
     <p style="color: var(--muted); margin-bottom: 24px;">Faça login para acessar suas apostas na nuvem.</p>
-    <button class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
+    <button type="button" class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"/></svg>
       Entrar com Google
     </button>
@@ -55,12 +58,12 @@
       <!-- Calendário (Mobile Only) -->
       <section class="card mobile-only" style="margin-bottom: 24px;">
         <div class="cal-nav">
-          <button class="btn btn--icon" id="cal-prev" style="border-radius:var(--radius-lg); width:32px; height:32px;">‹</button>
+          <button type="button" class="btn btn--icon" id="cal-prev" aria-label="Mês anterior" style="border-radius:var(--radius-lg); width:32px; height:32px;">‹</button>
           <div class="cal-nav__center">
             <div class="cal-nav__month" id="cal-month-name" style="font-size:16px;">Mai 2026</div>
             <div class="cal-nav__info" id="cal-month-info">Apostado: <span class="c-gold">R$ 0,00</span> · PnL: <span class="c-green">+R$ 0,00</span></div>
           </div>
-          <button class="btn btn--icon" id="cal-next" style="border-radius:var(--radius-lg); width:32px; height:32px;">›</button>
+          <button type="button" class="btn btn--icon" id="cal-next" aria-label="Próximo mês" style="border-radius:var(--radius-lg); width:32px; height:32px;">›</button>
         </div>
         <div class="cal-headers">
           <div class="cal-header-cell">D</div>
@@ -79,22 +82,22 @@
       <!-- Lista Completa -->
       <section>
         <div class="filter-bar" id="status-filter-bar">
-          <button class="filter-btn" data-filter="all">Todas</button>
-          <button class="filter-btn active" data-filter="pending">Abertas</button>
-          <button class="filter-btn" data-filter="won">Acertadas</button>
-          <button class="filter-btn" data-filter="lost">Erradas</button>
-          <button class="filter-btn" data-filter="void">Devolvidas</button>
+          <button type="button" class="filter-btn" data-filter="all" aria-pressed="false">Todas</button>
+          <button type="button" class="filter-btn active" data-filter="pending" aria-pressed="true">Abertas</button>
+          <button type="button" class="filter-btn" data-filter="won" aria-pressed="false">Acertadas</button>
+          <button type="button" class="filter-btn" data-filter="lost" aria-pressed="false">Erradas</button>
+          <button type="button" class="filter-btn" data-filter="void" aria-pressed="false">Devolvidas</button>
         </div>
         <div class="filter-bar" id="sport-filter-bar" style="margin-top: 8px;">
-          <button class="filter-btn active" data-sport="all">Todos</button>
-          <button class="filter-btn" data-sport="Basquete">🏀 Basquete</button>
-          <button class="filter-btn" data-sport="Futebol">⚽ Futebol</button>
-          <button class="filter-btn" data-sport="Outros">🎯 Outros</button>
+          <button type="button" class="filter-btn active" data-sport="all" aria-pressed="true">Todos</button>
+          <button type="button" class="filter-btn" data-sport="Basquete" aria-pressed="false">🏀 Basquete</button>
+          <button type="button" class="filter-btn" data-sport="Futebol" aria-pressed="false">⚽ Futebol</button>
+          <button type="button" class="filter-btn" data-sport="Outros" aria-pressed="false">🎯 Outros</button>
         </div>
         <div class="filter-bar" id="league-filter-bar" style="margin-top: 8px; display: none;">
-          <button class="filter-btn active" data-league="all">Todas</button>
-          <button class="filter-btn" data-league="NBA">NBA</button>
-          <button class="filter-btn" data-league="WNBA">WNBA</button>
+          <button type="button" class="filter-btn active" data-league="all" aria-pressed="true">Todas</button>
+          <button type="button" class="filter-btn" data-league="NBA" aria-pressed="false">NBA</button>
+          <button type="button" class="filter-btn" data-league="WNBA" aria-pressed="false">WNBA</button>
         </div>
         <div id="all-bets-container"></div>
         <div id="pagination-container" class="pagination"></div>
@@ -104,7 +107,7 @@
 
       <aside class="desktop-right" id="global-right-panel"></aside>
     </div>
-    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+    <nav class="mobile-nav" id="global-mobile-nav" aria-label="Navegação móvel"></nav>
   </div>
 
   
@@ -113,8 +116,10 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
+  <script src="firebase-client.js"></script>
 
-  <script src="app.js?v=13"></script>
+  <script src="core.js"></script>
+  <script src="app.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const user = await window.authStateReady;
@@ -131,19 +136,9 @@
       let activeSportFilter = 'all';
       let activeLeagueFilter = 'all';
       let currentPageNum = 1;
+      const activeActions = new Set();
       window.selectedDateFilter = null; // YYYY-MM-DD or null
       const ITEMS_PER_PAGE = 10;
-
-      // Helper to ensure date is YYYY-MM-DD
-      function normalizeDate(dStr) {
-        if (!dStr) return '';
-        dStr = dStr.trim();
-        if (dStr.includes('/')) {
-           const p = dStr.split('/');
-           if (p.length === 3) return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-        }
-        return dStr;
-      }
 
       function renderKPIs() {
         let kpiBets = db.bets;
@@ -168,74 +163,78 @@
       }
 
       async function resolveBet(betId, result) {
-        db = await loadDb();
-        const betIndex = db.bets.findIndex(b => b.id === betId);
-        if (betIndex === -1) return;
+        if (!['won', 'lost', 'void'].includes(result) || activeActions.has(betId)) return;
+        activeActions.add(betId);
 
-        const bet = db.bets[betIndex];
-        const bkIndex = db.bookmakers.findIndex(b => b.id === bet.bookmakerId);
-        
-        if (bkIndex !== -1) {
-          if (result === 'won') {
-            bet.profit = (bet.stake * bet.odd) - bet.stake;
-            bet.status = 'won';
-            
-            if (bet.isFreebet) {
-                // Freebet: devolve APENAS o lucro
-                db.bookmakers[bkIndex].balance += bet.profit;
-            } else {
-                // Return stake + profit to bookmaker
-                db.bookmakers[bkIndex].balance += (bet.stake + bet.profit);
-            }
-          } else if (result === 'lost') {
-            bet.status = 'lost';
-            if (bet.isFreebet) {
-                bet.profit = 0; // Freebet perdida não gera perda financeira real
-            } else {
-                bet.profit = -bet.stake;
-            }
-            // Stake was already deducted when placed (if not freebet), nothing to add back
-          } else if (result === 'void') {
-            bet.profit = 0;
-            bet.status = 'void';
-            if (!bet.isFreebet) {
-                // Return stake only if it wasn't a freebet
-                db.bookmakers[bkIndex].balance += bet.stake;
-            }
+        try {
+          db = await loadDb();
+          const betIndex = db.bets.findIndex(b => b.id === betId);
+          if (betIndex === -1) return;
+
+          const bet = db.bets[betIndex];
+          if (bet.status !== 'pending') return;
+          const bkIndex = db.bookmakers.findIndex(b => b.id === bet.bookmakerId);
+          if (bkIndex === -1) {
+            alert('A casa vinculada a esta aposta não foi encontrada.');
+            return;
           }
+
+          const settlement = calculateBetSettlement(bet, result);
+          bet.profit = settlement.profit;
+          bet.status = settlement.status;
+          db.bookmakers[bkIndex].balance = roundMoney(
+            db.bookmakers[bkIndex].balance + settlement.balanceCredit
+          );
+          await saveDb(db);
+          refreshAll();
+        } catch (error) {
+          console.error('Erro ao liquidar aposta:', error);
+        } finally {
+          activeActions.delete(betId);
         }
-        
-        await saveDb(db);
-        refreshAll();
       }
 
       async function revertBet(betId) {
-        db = await loadDb();
-        const betIndex = db.bets.findIndex(b => b.id === betId);
-        if (betIndex === -1) return;
+        if (activeActions.has(betId)) return false;
+        activeActions.add(betId);
 
-        const bet = db.bets[betIndex];
-        const bkIndex = db.bookmakers.findIndex(b => b.id === bet.bookmakerId);
+        try {
+          db = await loadDb();
+          const betIndex = db.bets.findIndex(b => b.id === betId);
+          if (betIndex === -1) return false;
 
-        if (bkIndex !== -1) {
-          if (bet.status === 'won') {
-            if (bet.isFreebet) {
-              db.bookmakers[bkIndex].balance -= bet.profit;
-            } else {
-              db.bookmakers[bkIndex].balance -= (bet.stake + bet.profit);
-            }
-          } else if (bet.status === 'void') {
-            if (!bet.isFreebet) {
-              db.bookmakers[bkIndex].balance -= bet.stake;
-            }
+          const bet = db.bets[betIndex];
+          if (bet.status === 'pending') return true;
+          const bkIndex = db.bookmakers.findIndex(b => b.id === bet.bookmakerId);
+
+          if (bkIndex === -1) {
+            alert('A casa vinculada a esta aposta não foi encontrada.');
+            return false;
           }
-        }
 
-        bet.status = 'pending';
-        bet.profit = 0;
-        
-        await saveDb(db);
-        refreshAll();
+          const debit = calculateBetReversalDebit(bet);
+          const availableBalance = roundMoney(db.bookmakers[bkIndex].balance);
+          if (debit > availableBalance + 0.0001) {
+            alert(
+              `Não é possível reverter: devolva ${formatMoney(debit - availableBalance)} ` +
+              'ao saldo desta casa primeiro.'
+            );
+            return false;
+          }
+
+          db.bookmakers[bkIndex].balance = roundMoney(availableBalance - debit);
+
+          bet.status = 'pending';
+          bet.profit = 0;
+          await saveDb(db);
+          refreshAll();
+          return true;
+        } catch (error) {
+          console.error('Erro ao reverter aposta:', error);
+          return false;
+        } finally {
+          activeActions.delete(betId);
+        }
       }
 
       window.resolveBet = resolveBet; // Expose to HTML inline onclick
@@ -256,7 +255,8 @@
 
         if(confirm(msg)) {
           // Revert its status to pending first so we undo wins/losses
-          await revertBet(id);
+          const reverted = await revertBet(id);
+          if (!reverted) return;
           
           // db has been updated by revertBet calling loadDb(), but let's be safe
           db = await loadDb();
@@ -268,9 +268,9 @@
             const updatedBet = db.bets[updatedBetIndex];
             const bkIndex = db.bookmakers.findIndex(b => b.id === updatedBet.bookmakerId);
             if (bkIndex !== -1 && !updatedBet.isFreebet) {
-              db.bookmakers[bkIndex].balance += updatedBet.stake;
-              // Clean up any edge cases with max
-              db.bookmakers[bkIndex].balance = Math.max(0, parseFloat(db.bookmakers[bkIndex].balance.toFixed(2)));
+              db.bookmakers[bkIndex].balance = roundMoney(
+                db.bookmakers[bkIndex].balance + updatedBet.stake
+              );
             }
             
             // Finally delete it
@@ -283,7 +283,7 @@
 
       function renderAllBets() {
         const container = document.getElementById('all-bets-container');
-        let filtered = db.bets;
+        let filtered = [...db.bets];
         
         if (activeFilter !== 'all') {
           filtered = filtered.filter(b => b.status === activeFilter);
@@ -328,41 +328,46 @@
 
         container.innerHTML = paginatedBets.map(b => {
           const bk = db.bookmakers.find(bk => bk.id === b.bookmakerId);
-          const bkName = bk ? bk.name : 'Desconhecida';
-          let statusBadge, pnlClass, pnlText, actionsHtml = '';
+          const safeId = escapeJsString(b.id);
+          const event = escapeHtml(b.event);
+          const sport = escapeHtml(b.sport || 'Outros');
+          const bkName = escapeHtml(bk ? bk.name : 'Desconhecida');
+          const bookmakerColor = sanitizeColor(bk?.color || '#4a5a7a');
+          const formattedDate = escapeHtml(b.date.split('-').reverse().join('/'));
+          let statusBadge, pnlClass, pnlText;
 
           const catClass = b.sport === 'Outros' ? 'tag--purple' : 'tag--blue';
           const sportLabel = b.sport === 'Basquete' ? '🏀' : b.sport === 'Futebol' ? '⚽' : '🎯';
-          const leagueTag = b.league ? `<span class="tag tag--blue">${b.league}</span>` : '';
+          const leagueTag = b.league ? `<span class="tag tag--blue">${escapeHtml(b.league)}</span>` : '';
 
           if (b.status === 'pending') {
             const freebetTag = b.isFreebet ? '<span class="tag tag--gold" style="background:#ffb80044;">🎁 FREEBET</span>' : '';
             return `
               <div class="bet-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                  <div class="bet-card__title" style="margin-bottom: 0;">${b.event}</div>
-                  <button class="bet-card__delete" onclick="removeBet('${b.id}')" title="Excluir aposta (apagar do sistema)">
+                  <div class="bet-card__title" style="margin-bottom: 0;">${event}</div>
+                  <button type="button" class="bet-card__delete" onclick="removeBet('${safeId}')" title="Excluir aposta" aria-label="Excluir ${event}">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                   </button>
                 </div>
                 <div class="bet-card__tags" style="margin-bottom: 16px;">
                   <span class="tag tag--gold">⌛ ABERTA</span>
                   ${freebetTag}
-                  <span class="tag ${catClass}">${sportLabel} ${b.sport}</span>
+                  <span class="tag ${catClass}">${sportLabel} ${sport}</span>
                     ${leagueTag}
-                  <span class="tag" style="background: ${bk ? bk.color : '#fff'}22; color: ${bk ? bk.color : '#fff'};">${bkName}</span>
+                  <span class="tag" style="background: ${bookmakerColor}22; color: ${bookmakerColor};">${bkName}</span>
                 </div>
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; margin-bottom: 16px;">
                   <div>Odd <strong style="color:var(--text); font-family:var(--mono);">${b.odd.toFixed(2)}</strong></div>
                   <div>Stake <strong style="color:var(--text); font-family:var(--mono);">${formatMoney(b.stake)}</strong></div>
-                  <div style="font-family:var(--mono); font-size: 12px;">${b.date}</div>
+                  <div style="font-family:var(--mono); font-size: 12px;">${formattedDate}</div>
                 </div>
 
                 <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                  <button class="btn btn--win" style="flex: 1;" onclick="resolveBet('${b.id}', 'won')">✓ Acertou</button>
-                  <button class="btn btn--lose" style="flex: 1;" onclick="resolveBet('${b.id}', 'lost')">✗ Errou</button>
-                  <button class="btn btn--icon" style="width: 42px; height: 42px; border-radius: var(--radius-md);" onclick="resolveBet('${b.id}', 'void')" title="Aposta Devolvida / Anulada">∅</button>
+                  <button type="button" class="btn btn--win" style="flex: 1;" onclick="resolveBet('${safeId}', 'won')">✓ Acertou</button>
+                  <button type="button" class="btn btn--lose" style="flex: 1;" onclick="resolveBet('${safeId}', 'lost')">✗ Errou</button>
+                  <button type="button" class="btn btn--icon" style="width: 42px; height: 42px; border-radius: var(--radius-md);" onclick="resolveBet('${safeId}', 'void')" title="Aposta devolvida ou anulada" aria-label="Marcar como devolvida">∅</button>
                 </div>
               </div>
             `;
@@ -386,11 +391,11 @@
             <div class="bet-card">
               <div class="bet-card__header">
                 <div class="bet-card__info">
-                  <div class="bet-card__title">${b.event}</div>
+                  <div class="bet-card__title">${event}</div>
                   <div class="bet-card__tags">
                     ${statusBadge}
                     ${freebetTagResolved}
-                    <span class="tag ${catClass}">${sportLabel} ${b.sport}</span>
+                    <span class="tag ${catClass}">${sportLabel} ${sport}</span>
                     ${leagueTag}
                     <span class="tag tag--muted">${bkName}</span>
                     <span class="tag tag--muted">Odd ${b.odd.toFixed(2)}</span>
@@ -402,12 +407,12 @@
               </div>
               <div class="bet-card__footer" style="display:flex; justify-content:space-between; align-items:flex-end;">
                 <div>
-                  <span>Data: <strong>${b.date.split('-').reverse().join('/')}</strong></span><br>
+                  <span>Data: <strong>${formattedDate}</strong></span><br>
                   <span>Stake: <strong>${formatMoney(b.stake)}</strong></span>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                  <button class="btn btn--secondary" style="padding: 4px 8px; font-size: 11px; height: auto;" onclick="revertBet('${b.id}')">↩ Desfazer</button>
-                  <button class="bet-card__delete" onclick="removeBet('${b.id}')" title="Excluir aposta">
+                  <button type="button" class="btn btn--secondary" style="padding: 4px 8px; font-size: 11px; height: auto;" onclick="revertBet('${safeId}')">↩ Desfazer</button>
+                  <button type="button" class="bet-card__delete" onclick="removeBet('${safeId}')" title="Excluir aposta" aria-label="Excluir ${event}">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                   </button>
                 </div>
@@ -430,7 +435,7 @@
         let html = '';
         for (let i = 1; i <= totalPages; i++) {
           const activeClass = i === currentPageNum ? 'active' : '';
-          html += `<button class="pagination-btn ${activeClass}" onclick="goToPage(${i})">${i}</button>`;
+          html += `<button type="button" class="pagination-btn ${activeClass}" onclick="goToPage(${i})" ${activeClass ? 'aria-current="page"' : ''}>${i}</button>`;
         }
         paginationContainer.innerHTML = html;
       }
@@ -443,11 +448,15 @@
       };
 
       // Filter events
-      document.querySelectorAll('#status-filter-bar .filter-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          document.querySelectorAll('#status-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
-          e.target.classList.add('active');
-          activeFilter = e.target.dataset.filter;
+        document.querySelectorAll('#status-filter-bar .filter-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#status-filter-bar .filter-btn').forEach(button => {
+            button.classList.remove('active');
+            button.setAttribute('aria-pressed', 'false');
+          });
+          e.currentTarget.classList.add('active');
+          e.currentTarget.setAttribute('aria-pressed', 'true');
+          activeFilter = e.currentTarget.dataset.filter;
           window.selectedDateFilter = null; // Clear date filter when changing status filter
           currentPageNum = 1;
           renderAllBets();
@@ -457,16 +466,26 @@
       });
 
       // Sport filter events
-      document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
-          e.target.classList.add('active');
-          activeSportFilter = e.target.dataset.sport;
+        document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#sport-filter-bar .filter-btn').forEach(button => {
+            button.classList.remove('active');
+            button.setAttribute('aria-pressed', 'false');
+          });
+          e.currentTarget.classList.add('active');
+          e.currentTarget.setAttribute('aria-pressed', 'true');
+          activeSportFilter = e.currentTarget.dataset.sport;
           // Reset league filter
           activeLeagueFilter = 'all';
-          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(button => {
+            button.classList.remove('active');
+            button.setAttribute('aria-pressed', 'false');
+          });
           const allLeagueBtn = document.querySelector('#league-filter-bar .filter-btn[data-league="all"]');
-          if (allLeagueBtn) allLeagueBtn.classList.add('active');
+          if (allLeagueBtn) {
+            allLeagueBtn.classList.add('active');
+            allLeagueBtn.setAttribute('aria-pressed', 'true');
+          }
           // Show/hide league filter bar
           document.getElementById('league-filter-bar').style.display = activeSportFilter === 'Basquete' ? '' : 'none';
           currentPageNum = 1;
@@ -475,11 +494,15 @@
       });
 
       // League filter events
-      document.querySelectorAll('#league-filter-bar .filter-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
-          e.target.classList.add('active');
-          activeLeagueFilter = e.target.dataset.league;
+        document.querySelectorAll('#league-filter-bar .filter-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#league-filter-bar .filter-btn').forEach(button => {
+            button.classList.remove('active');
+            button.setAttribute('aria-pressed', 'false');
+          });
+          e.currentTarget.classList.add('active');
+          e.currentTarget.setAttribute('aria-pressed', 'true');
+          activeLeagueFilter = e.currentTarget.dataset.league;
           currentPageNum = 1;
           renderAllBets();
         });
@@ -529,7 +552,7 @@
         }
 
         // Days
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getLocalDateKey();
 
         for (let i = 1; i <= daysInMonth; i++) {
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
@@ -553,7 +576,9 @@
 
           const hasData = dailyProfit[dateStr] !== undefined;
           const selectedClass = window.selectedDateFilter === dateStr ? ' cal-cell--selected' : '';
-          grid.innerHTML += `<div class="${cellClass}${selectedClass}" ${hasData ? `data-date="${dateStr}" onclick="filterByDate('${dateStr}')"` : ''} ${hasData ? 'style="cursor:pointer"' : 'style="cursor:default"'}>${i}${pnlHtml}</div>`;
+          grid.innerHTML += hasData
+            ? `<button type="button" class="${cellClass}${selectedClass}" data-date="${dateStr}" onclick="filterByDate('${dateStr}')" aria-label="Filtrar apostas de ${String(i).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}">${i}${pnlHtml}</button>`
+            : `<div class="${cellClass}${selectedClass}" aria-hidden="true">${i}${pnlHtml}</div>`;
         }
       }
 
@@ -583,9 +608,15 @@
           window.selectedDateFilter = dateStr;
           // Switch to 'all' status filter so user sees all bets for that day
           activeFilter = 'all';
-          document.querySelectorAll('#status-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('#status-filter-bar .filter-btn').forEach(button => {
+            button.classList.remove('active');
+            button.setAttribute('aria-pressed', 'false');
+          });
           const allBtn = document.querySelector('#status-filter-bar .filter-btn[data-filter="all"]');
-          if(allBtn) allBtn.classList.add('active');
+          if (allBtn) {
+            allBtn.classList.add('active');
+            allBtn.setAttribute('aria-pressed', 'true');
+          }
         }
         currentPageNum = 1;
         renderAllBets();
@@ -612,7 +643,7 @@
         const formattedDate = window.selectedDateFilter.split('-').reverse().join('/');
         const bannerHtml = `<div class="date-filter-banner" id="date-filter-banner">
           <span>📅 Mostrando apostas de<strong>${formattedDate}</strong></span>
-          <button onclick="clearDateFilter()" title="Limpar filtro">✕</button>
+          <button type="button" onclick="clearDateFilter()" title="Limpar filtro" aria-label="Limpar filtro de data">✕</button>
         </div>`;
         const container = document.getElementById('all-bets-container');
         if (banner) {
@@ -628,9 +659,15 @@
       if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
         window.selectedDateFilter = dateParam;
         activeFilter = 'all';
-        document.querySelectorAll('#status-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('#status-filter-bar .filter-btn').forEach(button => {
+          button.classList.remove('active');
+          button.setAttribute('aria-pressed', 'false');
+        });
         const allBtn = document.querySelector('#status-filter-bar .filter-btn[data-filter="all"]');
-        if(allBtn) allBtn.classList.add('active');
+        if (allBtn) {
+          allBtn.classList.add('active');
+          allBtn.setAttribute('aria-pressed', 'true');
+        }
         // Navigate calendar to the correct month
         const [y, m] = dateParam.split('-').map(Number);
         currentDate = new Date(y, m - 1, 1);

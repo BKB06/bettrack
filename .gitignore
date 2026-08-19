@@ -47,6 +47,9 @@ build/Release
 # Dependency directories
 node_modules/
 
+# Build reproduzível
+dist/
+
 # Optional npm cache directory
 .npm
 
@@ -64,11 +67,13 @@ node_modules/
 
 # dotenv environment variables file
 .env
+.env.*
+!.env.example
 
 # dataconnect generated files
 .dataconnect
 
-# Firebase config com credenciais reais
+# Configuração web local (cada ambiente usa seu próprio projeto Firebase)
 firebase-config.js
 
 # Arquivos de teste/debug

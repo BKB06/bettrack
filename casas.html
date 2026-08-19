@@ -2,9 +2,12 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cadastre suas casas de aposta e acompanhe o saldo disponível em cada conta.">
+  <meta name="theme-color" content="#07090f">
   <title>BetTracker - Casas de Aposta</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   
@@ -15,7 +18,7 @@
     <div style="font-size: 48px; margin-bottom: 16px;">🎯</div>
     <h1 style="margin-bottom: 8px;">BetTracker</h1>
     <p style="color: var(--muted); margin-bottom: 24px;">Faça login para acessar suas apostas na nuvem.</p>
-    <button class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
+    <button type="button" class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"/></svg>
       Entrar com Google
     </button>
@@ -39,22 +42,22 @@
       <form id="add-bk-form" class="card" style="display:none; margin-bottom: 24px;">
         <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">Nova Casa</h2>
         <div class="field">
-          <label class="field-label">NOME</label>
-          <input type="text" class="input" id="new-bk-name" placeholder="Ex: KTO, Pinnacle..." required>
+          <label class="field-label" for="new-bk-name">NOME</label>
+          <input type="text" class="input" id="new-bk-name" placeholder="Ex: KTO, Pinnacle..." maxlength="80" autocomplete="organization" required>
         </div>
         <div class="field">
-          <label class="field-label">COR</label>
+          <span class="field-label" id="color-picker-label">COR</span>
           <div class="color-picker" id="color-picker">
-            <div class="color-swatch active" style="background: #ff3c3c" data-color="#ff3c3c"></div>
-            <div class="color-swatch" style="background: #ff8a00" data-color="#ff8a00"></div>
-            <div class="color-swatch" style="background: #4da8ff" data-color="#4da8ff"></div>
-            <div class="color-swatch" style="background: #a78bfa" data-color="#a78bfa"></div>
-            <div class="color-swatch" style="background: #00d2ff" data-color="#00d2ff"></div>
-            <div class="color-swatch" style="background: #ff5e3a" data-color="#ff5e3a"></div>
-            <div class="color-swatch" style="background: #6ab04c" data-color="#6ab04c"></div>
-            <div class="color-swatch" style="background: #636e72" data-color="#636e72"></div>
-            <div class="color-swatch" style="background: #ffb800" data-color="#ffb800"></div>
-            <div class="color-swatch" style="background: #00e87a" data-color="#00e87a"></div>
+            <button type="button" class="color-swatch active" style="background: #ff3c3c" data-color="#ff3c3c" aria-label="Vermelho" aria-pressed="true"></button>
+            <button type="button" class="color-swatch" style="background: #ff8a00" data-color="#ff8a00" aria-label="Laranja" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" style="background: #4da8ff" data-color="#4da8ff" aria-label="Azul" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" style="background: #a78bfa" data-color="#a78bfa" aria-label="Roxo" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" style="background: #00d2ff" data-color="#00d2ff" aria-label="Ciano" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" style="background: #ff5e3a" data-color="#ff5e3a" aria-label="Coral" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" style="background: #6ab04c" data-color="#6ab04c" aria-label="Verde oliva" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" style="background: #636e72" data-color="#636e72" aria-label="Cinza" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" style="background: #ffb800" data-color="#ffb800" aria-label="Amarelo" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" style="background: #00e87a" data-color="#00e87a" aria-label="Verde" aria-pressed="false"></button>
           </div>
         </div>
         <button type="submit" class="btn btn--primary btn--full" style="margin-top: 8px;">Adicionar</button>
@@ -83,7 +86,7 @@
 
       <aside class="desktop-right" id="global-right-panel"></aside>
     </div>
-    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+    <nav class="mobile-nav" id="global-mobile-nav" aria-label="Navegação móvel"></nav>
   </div>
 
   
@@ -92,8 +95,10 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
+  <script src="firebase-client.js"></script>
 
-  <script src="app.js?v=13"></script>
+  <script src="core.js"></script>
+  <script src="app.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const user = await window.authStateReady;
@@ -114,15 +119,20 @@
 
       document.querySelectorAll('.color-swatch').forEach(swatch => {
         swatch.addEventListener('click', (e) => {
-          document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+          document.querySelectorAll('.color-swatch').forEach(s => {
+            s.classList.remove('active');
+            s.setAttribute('aria-pressed', 'false');
+          });
           e.target.classList.add('active');
+          e.target.setAttribute('aria-pressed', 'true');
           selectedColor = e.target.dataset.color;
         });
       });
 
       formWrap.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('new-bk-name').value;
+        const name = document.getElementById('new-bk-name').value.trim();
+        if (!name) return;
 
         db.bookmakers.push({
           id: generateId(),
@@ -138,19 +148,34 @@
       });
 
       window.removeBookmaker = async (id) => {
-        if(confirm('Apagar casa de apostas?')) {
-          db = await loadDb();
-          db.bookmakers = db.bookmakers.filter(b => b.id !== id);
-          await saveDb(db);
-          refreshAll();
+        db = await loadDb();
+        const bookmaker = db.bookmakers.find(item => item.id === id);
+        if (!bookmaker) return;
+
+        const hasBalance = Number(bookmaker.balance) > 0;
+        const hasBets = db.bets.some(bet => bet.bookmakerId === id);
+        const hasCashflow = db.cashflow.some(entry => entry.fromBook === id || entry.toBook === id);
+        if (hasBalance || hasBets || hasCashflow) {
+          alert('Esta casa possui saldo ou histórico relacionado e não pode ser excluída. Zere o saldo e preserve os registros para manter os relatórios corretos.');
+          return;
         }
+
+        if (!confirm(`Apagar a casa "${bookmaker.name}"?`)) return;
+        db.bookmakers = db.bookmakers.filter(item => item.id !== id);
+        await saveDb(db);
+        refreshAll();
       };
 
       window.updateBalance = async (id, type, value) => {
         db = await loadDb();
         const bk = db.bookmakers.find(b => b.id === id);
         if (bk) {
-          bk[type] = parseFloat(value) || 0;
+          const parsedValue = Number(value);
+          if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+            alert('Informe um saldo válido, maior ou igual a zero.');
+            return;
+          }
+          bk[type] = parsedValue;
           await saveDb(db);
           renderTotals(); // Just update totals without re-rendering everything to keep focus
         }
@@ -162,11 +187,7 @@
           if (card) {
             const link = card.querySelector('.external-link-btn');
             if (link) {
-              let url = value ? value.trim() : '';
-              if (url) {
-                url = url.replace(/^(https?:\/\/|:\/\/)+/, '');
-                url = 'https://' + url;
-              }
+              const url = normalizeExternalUrl(value);
               link.href = url || getDefaultBookmakerUrl(name);
             }
           }
@@ -177,12 +198,11 @@
         db = await loadDb();
         const bk = db.bookmakers.find(b => b.id === id);
         if (bk) {
-          let url = value ? value.trim() : '';
-          if (url) {
-            url = url.replace(/^(https?:\/\/|:\/\/)+/, '');
-            url = 'https://' + url;
-          } else {
-            url = '';
+          const rawUrl = value ? value.trim() : '';
+          const url = normalizeExternalUrl(rawUrl);
+          if (rawUrl && !url) {
+            alert('Informe um endereço válido, como exemplo.com.');
+            return;
           }
           bk.url = url;
           await saveDb(db);
@@ -233,22 +253,29 @@
 
           const isActive = total >= 0.01;
           const statusColor = isActive ? 'var(--green)' : 'var(--muted)';
-          const initial = bk.name.charAt(0).toUpperCase();
+          const safeId = escapeJsString(bk.id);
+          const safeName = escapeHtml(bk.name);
+          const safeNameForHandler = escapeJsString(bk.name);
+          const initial = escapeHtml(bk.name.charAt(0).toUpperCase());
+          const color = sanitizeColor(bk.color);
+          const bookmakerUrl = normalizeExternalUrl(bk.url) || getDefaultBookmakerUrl(bk.name);
+          const safeUrl = escapeHtml(bookmakerUrl);
+          const displayUrl = escapeHtml(bookmakerUrl.replace(/^https?:\/\/(www\.)?/, ''));
 
           return `
             <div class="bookmaker-card">
               <div class="bookmaker-card__header">
-                <div class="bookmaker-logo" style="background: rgba(255,255,255,0.05); color: ${bk.color}">
+                <div class="bookmaker-logo" style="background: rgba(255,255,255,0.05); color: ${color}">
                   ${initial}
                 </div>
                 <div class="bookmaker-title-wrapper">
-                  <div class="bookmaker-name">${bk.name}</div>
+                  <div class="bookmaker-name">${safeName}</div>
                   <div class="bookmaker-status">
                     <div class="status-dot" style="background: ${statusColor}"></div>
                     ${isActive ? 'ativo' : 'inativo'}
                   </div>
                 </div>
-                <button class="bookmaker-remove" onclick="removeBookmaker('${bk.id}')" title="Remover Casa">
+                <button type="button" class="bookmaker-remove" onclick="removeBookmaker('${safeId}')" title="Remover casa" aria-label="Remover ${safeName}">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
               </div>
@@ -259,13 +286,13 @@
                 <div class="label" style="font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; font-weight: 700;">SALDO</div>
                 <div style="display: flex; align-items: baseline; gap: 4px; margin-bottom: 16px;">
                   <span style="color: ${statusColor}; font-size: 15px; font-weight: 800; font-family: var(--mono);">R$</span>
-                  <input type="number" step="0.01" class="bookmaker-balance-input" style="color: ${statusColor};" value="${total.toFixed(2)}" onchange="updateBalance('${bk.id}', 'balance', this.value); renderTotals();">
+                  <input type="number" min="0" step="0.01" inputmode="decimal" aria-label="Saldo de ${safeName}" class="bookmaker-balance-input" style="color: ${statusColor};" value="${total.toFixed(2)}" onchange="updateBalance('${safeId}', 'balance', this.value); renderTotals();">
                 </div>
                 
                 <div class="bookmaker-url-row">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                  <input type="text" class="url-input-clean" value="${(bk.url || getDefaultBookmakerUrl(bk.name)).replace(/^https?:\/\/(www\.)?/, '')}" onchange="updateUrl('${bk.id}', this.value, this)" oninput="previewUrl('${bk.id}', '${bk.name}', this.value, this)" placeholder="dominio.com">
-                  <a href="${bk.url || getDefaultBookmakerUrl(bk.name)}" target="_blank" class="external-link-btn" title="Acessar site" onclick="autoCheckin('${bk.id}')">
+                  <input type="url" class="url-input-clean" aria-label="Site de ${safeName}" value="${displayUrl}" onchange="updateUrl('${safeId}', this.value, this)" oninput="previewUrl('${safeId}', '${safeNameForHandler}', this.value, this)" placeholder="dominio.com">
+                  <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="external-link-btn" title="Acessar site" aria-label="Abrir site de ${safeName}" onclick="autoCheckin('${safeId}')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                   </a>
                 </div>

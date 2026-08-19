@@ -1,67 +1,113 @@
 # 🎯 BetTrack
 
-Gerenciador de apostas esportivas pessoal com controle de bankroll, histórico de apostas e relatórios.
+[![Qualidade](https://github.com/BKB06/bettrack/actions/workflows/ci.yml/badge.svg)](https://github.com/BKB06/bettrack/actions/workflows/ci.yml)
 
-## ✨ Funcionalidades
+Gerenciador pessoal de banca e apostas esportivas, com autenticação Google e sincronização pelo Firebase.
 
-- **Dashboard** — Visão geral do bankroll com saldo total e por casa
-- **Casas de Apostas** — Gerenciamento de contas com saldos individuais
-- **Histórico** — Registro completo de todas as apostas com filtros
-- **Relatórios** — Análise de desempenho com gráficos
-- **Check-in de Contas** — Controle diário de logins nas casas
-- **Fundos** — Gerenciamento de depósitos e saques (Mercado Pago)
-- **Login com Google** — Autenticação via Firebase Auth
+> O BetTrack é uma ferramenta de organização. Ele não recomenda apostas nem garante resultados financeiros.
 
-## 🛠️ Tecnologias
+## Funcionalidades
 
-- HTML, CSS, JavaScript (Vanilla)
-- Firebase Authentication (Google Sign-In)
-- Cloud Firestore (banco de dados)
-- Firebase Hosting
+- dashboard de patrimônio, exposição e desempenho;
+- cadastro de casas e controle de saldo;
+- registro de apostas, incluindo freebets e importação de cupom por OCR;
+- liquidação, reversão, filtros e calendário do histórico;
+- depósitos, saques e transferências entre contas;
+- relatório de ROI, taxa de acerto e evolução da banca;
+- check-in diário nas casas de aposta;
+- dados isolados por usuário autenticado.
 
-## 🚀 Configuração
+## Tecnologias
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/BKB06/bettrack.git
-   cd bettrack
-   ```
+- HTML, CSS e JavaScript sem framework;
+- Firebase Authentication e Cloud Firestore;
+- Firebase Hosting;
+- Node.js apenas para build, validação e testes;
+- GitHub Actions para integração contínua.
 
-2. Crie seu projeto no [Firebase Console](https://console.firebase.google.com/)
+## Começando
 
-3. Copie o arquivo de configuração e preencha com suas credenciais:
-   ```bash
-   cp firebase-config.example.js firebase-config.js
-   ```
+### Pré-requisitos
 
-4. Edite `firebase-config.js` com as credenciais do seu projeto Firebase (encontre em: Firebase Console → Configurações do Projeto → Seus apps → Config)
+- Node.js 20 ou superior;
+- um projeto no [Firebase Console](https://console.firebase.google.com/);
+- Google como provedor habilitado em **Authentication → Sign-in method**.
 
-5. Configure as **Firestore Security Rules** no Firebase Console para proteger os dados dos usuários
+### Instalação
 
-6. Abra `index.html` no navegador ou faça deploy com Firebase Hosting:
-   ```bash
-   npm install -g firebase-tools
-   firebase login
-   firebase deploy
-   ```
-
-## 📁 Estrutura
-
-```
-├── index.html              # Dashboard principal
-├── casas.html              # Gerenciamento de casas de apostas
-├── historico.html           # Histórico de apostas
-├── relatorio.html           # Relatórios e análises
-├── logins.html              # Check-in diário de contas
-├── fundos.html              # Controle de fundos
-├── 404.html                 # Página de erro
-├── app.js                   # Lógica principal e camada de dados
-├── firebase-config.example.js  # Template de configuração Firebase
-├── styles.css               # Estilos globais
-├── firebase.json            # Configuração do Firebase Hosting
-└── .firebaserc              # Projeto Firebase vinculado
+```bash
+git clone https://github.com/BKB06/bettrack.git
+cd bettrack
+npm install
+cp firebase-config.example.js firebase-config.js
 ```
 
-## 📝 Licença
+Preencha `firebase-config.js` com a configuração web exibida em **Configurações do projeto → Seus apps**. Não coloque chaves de conta de serviço nesse arquivo.
 
-Este projeto é de uso pessoal. Sinta-se livre para usar como referência.
+Depois, inicie o ambiente local:
+
+```bash
+npm run dev
+```
+
+Abra `http://127.0.0.1:4173`. O servidor local entrega somente o conteúdo de `dist/`; não abra os arquivos HTML diretamente, pois a autenticação precisa de uma origem autorizada.
+
+No Firebase, adicione `127.0.0.1` aos domínios autorizados do Authentication. Adicione também `localhost` se usar esse endereço durante o desenvolvimento. Publique as regras do Firestore antes de usar dados reais.
+
+## Comandos
+
+| Comando | Finalidade |
+| --- | --- |
+| `npm run dev` | Gera e serve o site localmente. |
+| `npm run build` | Cria em `dist/` somente os arquivos permitidos no deploy. |
+| `npm run check` | Valida JavaScript, páginas e configuração de publicação. |
+| `npm test` | Executa os testes das regras de negócio. |
+| `npm run validate` | Executa todas as verificações usadas na integração contínua. |
+
+## Publicação no Firebase
+
+Valide o projeto antes do deploy:
+
+```bash
+npm run validate
+npx firebase-tools login
+npx firebase-tools deploy --only firestore:rules,hosting
+```
+
+O `firebase.json` publica exclusivamente `dist/`. Isso é uma barreira de segurança importante: a raiz do repositório, o histórico Git, arquivos de teste e configurações locais não podem ser enviados ao Hosting.
+
+Também é possível gerar `firebase-config.js` durante o build usando estas variáveis:
+
+- `FIREBASE_API_KEY`
+- `FIREBASE_AUTH_DOMAIN`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_STORAGE_BUCKET`
+- `FIREBASE_MESSAGING_SENDER_ID`
+- `FIREBASE_APP_ID`
+- `FIREBASE_MEASUREMENT_ID` (opcional)
+
+## Estrutura
+
+```text
+├── *.html                 # Telas do produto
+├── app.js                 # Firebase e interface compartilhada
+├── core.js                # Regras puras, validação e normalização
+├── firebase-client.js     # Inicialização versionada do Firebase
+├── styles.css             # Design system e responsividade
+├── scripts/               # Build, servidor local e verificações
+├── tests/                 # Testes automatizados
+├── firestore.rules        # Isolamento de dados por UID
+├── firebase.json          # Hosting seguro e regras
+├── docs/ROADMAP.md        # Melhorias planejadas
+└── .github/               # CI e modelo de pull request
+```
+
+## Segurança e contribuição
+
+- Leia [SECURITY.md](SECURITY.md) para relatar vulnerabilidades de forma privada.
+- Leia [CONTRIBUTING.md](CONTRIBUTING.md) antes de enviar uma pull request.
+- Consulte a [lista priorizada de melhorias](docs/ROADMAP.md).
+
+## Licença
+
+Distribuído sob a licença MIT. Consulte [LICENSE](LICENSE).

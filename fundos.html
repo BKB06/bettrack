@@ -2,9 +2,12 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Registre depósitos, saques e transferências entre suas casas de aposta.">
+  <meta name="theme-color" content="#07090f">
   <title>BetTracker - Fundos</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   
@@ -15,7 +18,7 @@
     <div style="font-size: 48px; margin-bottom: 16px;">🎯</div>
     <h1 style="margin-bottom: 8px;">BetTracker</h1>
     <p style="color: var(--muted); margin-bottom: 24px;">Faça login para acessar suas apostas na nuvem.</p>
-    <button class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
+    <button type="button" class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"/></svg>
       Entrar com Google
     </button>
@@ -33,28 +36,28 @@
       </div>
 
       <!-- Mercado Pago Card -->
-      <div class="bank-card" id="mp-card" onclick="editMpBalance()" style="cursor: pointer;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-          <div class="bank-card__label" style="display:flex; align-items:center; gap:6px;">
+      <button type="button" class="bank-card bank-card--button" id="mp-card" onclick="editMpBalance()">
+        <span style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <span class="bank-card__label" style="display:flex; align-items:center; gap:6px;">
             <span style="font-size:14px;">🏦</span> MERCADO PAGO
-          </div>
-          <div class="bank-card__hint" style="color: var(--blue);">toque para editar</div>
-        </div>
-        <div class="bank-card__value" id="mp-balance-display">R$ 0,00</div>
-      </div>
+          </span>
+          <span class="bank-card__hint" style="color: var(--blue);">toque para editar</span>
+        </span>
+        <span class="bank-card__value" id="mp-balance-display">R$ 0,00</span>
+      </button>
 
       <div class="card" style="margin-bottom: 32px;">
         <!-- Tabs -->
         <div class="transfer-tabs">
-          <button class="transfer-tab" data-type="deposit">
+          <button type="button" class="transfer-tab" data-type="deposit" aria-pressed="false">
             <span style="display:block; margin-bottom:4px; font-size:16px;">↓</span>
             Depósito
           </button>
-          <button class="transfer-tab active" data-type="withdraw">
+          <button type="button" class="transfer-tab active" data-type="withdraw" aria-pressed="true">
             <span style="display:block; margin-bottom:4px; font-size:16px;">↑</span>
             Saque
           </button>
-          <button class="transfer-tab" data-type="transfer">
+          <button type="button" class="transfer-tab" data-type="transfer" aria-pressed="false">
             <span style="display:block; margin-bottom:4px; font-size:16px;">⇄</span>
             Entre Casas
           </button>
@@ -65,29 +68,29 @@
           <p id="form-direction" style="font-size:12px; color:var(--muted); margin-bottom:12px;">Casa de Apostas → Mercado Pago</p>
           
           <div class="field" id="field-book-from">
-            <label class="field-label" id="label-book-from">Casa de Origem</label>
+            <label class="field-label" id="label-book-from" for="input-book-from">Casa de Origem</label>
             <select class="select" id="input-book-from" required></select>
           </div>
 
           <div class="field" id="field-book-to" style="display: none;">
-            <label class="field-label">Casa de Destino</label>
+            <label class="field-label" for="input-book-to">Casa de Destino</label>
             <select class="select" id="input-book-to"></select>
           </div>
 
           <div class="field-grid-2">
             <div class="field">
-              <label class="field-label">Valor (R$)</label>
-              <input type="number" step="0.01" class="input" id="input-amount" placeholder="0.00" required>
+              <label class="field-label" for="input-amount">Valor (R$)</label>
+              <input type="number" min="0.01" max="999999999.99" step="0.01" inputmode="decimal" class="input" id="input-amount" placeholder="0.00" required>
             </div>
             <div class="field">
-              <label class="field-label">Data</label>
+              <label class="field-label" for="input-date">Data</label>
               <input type="date" class="input" id="input-date" required>
             </div>
           </div>
 
           <div class="field">
-            <label class="field-label">Observação (Opcional)</label>
-            <input type="text" class="input" id="input-note" placeholder="Ex: lucro semanal">
+            <label class="field-label" for="input-note">Observação (Opcional)</label>
+            <input type="text" class="input" id="input-note" maxlength="240" placeholder="Ex: lucro semanal">
           </div>
 
           <button type="submit" class="btn btn--primary btn--full" id="btn-submit" style="margin-top: 8px;">
@@ -106,7 +109,7 @@
 
       <aside class="desktop-right" id="global-right-panel"></aside>
     </div>
-    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+    <nav class="mobile-nav" id="global-mobile-nav" aria-label="Navegação móvel"></nav>
   </div>
 
   
@@ -115,8 +118,10 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
+  <script src="firebase-client.js"></script>
 
-  <script src="app.js?v=13"></script>
+  <script src="core.js"></script>
+  <script src="app.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const user = await window.authStateReady;
@@ -151,11 +156,13 @@
         const novoSaldo = prompt("Digite o novo saldo do Mercado Pago:", db.mercadoPago.toFixed(2));
         if (novoSaldo !== null) {
           const parsed = parseFloat(novoSaldo.replace(',', '.'));
-          if (!isNaN(parsed)) {
+          if (Number.isFinite(parsed) && parsed >= 0) {
             db.mercadoPago = parsed;
             await saveDb(db);
             updateMpDisplay();
             updateGlobalUI();
+          } else {
+            alert('Informe um saldo válido, maior ou igual a zero.');
           }
         }
       };
@@ -165,23 +172,41 @@
       }
 
       function populateSelects() {
-        const options = db.bookmakers.map(bk => 
-          `<option value="${bk.id}">${bk.name} (R$ ${Number(bk.balance || 0).toFixed(2)})</option>`
+        const allOptions = db.bookmakers.map(bk =>
+          `<option value="${escapeHtml(bk.id)}">${escapeHtml(bk.name)} (R$ ${Number(bk.balance || 0).toFixed(2)})</option>`
         ).join('');
+
+        // Saques e transferências só podem começar em contas com saldo disponível.
+        const needsBalance = (currentType === 'withdraw' || currentType === 'transfer');
+        const withBalance = db.bookmakers.filter(bk => Number(bk.balance || 0) > 0);
+        const fromOptions = needsBalance
+          ? (withBalance.length > 0
+              ? withBalance.map(bk =>
+                  `<option value="${escapeHtml(bk.id)}">${escapeHtml(bk.name)} (R$ ${Number(bk.balance || 0).toFixed(2)})</option>`
+                ).join('')
+              : '<option value="" disabled selected>Nenhuma casa com saldo</option>')
+          : allOptions;
         
         const prevFrom = inputBookFrom.value;
         const prevTo = inputBookTo.value;
 
-        inputBookFrom.innerHTML = options;
-        inputBookTo.innerHTML = options;
+        inputBookFrom.innerHTML = fromOptions;
+        inputBookTo.innerHTML = allOptions;
 
-        if (prevFrom) inputBookFrom.value = prevFrom;
-        if (prevTo) inputBookTo.value = prevTo;
+        if (prevFrom && Array.from(inputBookFrom.options).some(option => option.value === prevFrom)) {
+          inputBookFrom.value = prevFrom;
+        }
+        if (prevTo && Array.from(inputBookTo.options).some(option => option.value === prevTo)) {
+          inputBookTo.value = prevTo;
+        }
       }
 
       function updateMode() {
-        tabs.forEach(t => t.classList.remove('active'));
-        document.querySelector(`.transfer-tab[data-type="${currentType}"]`).classList.add('active');
+        tabs.forEach(tab => {
+          const isActive = tab.dataset.type === currentType;
+          tab.classList.toggle('active', isActive);
+          tab.setAttribute('aria-pressed', String(isActive));
+        });
 
         if (currentType === 'deposit') {
           directionLabel.textContent = 'Mercado Pago → Casa de Apostas';
@@ -207,6 +232,7 @@
       tabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
           currentType = e.currentTarget.dataset.type;
+          populateSelects();
           updateMode();
         });
       });
@@ -246,8 +272,8 @@
             <div class="transfer-item ${typeClass}">
               <div>
                 <div class="transfer-item__label">${label}</div>
-                <div class="transfer-item__meta">${c.date.split('-').reverse().join('/')} • ${fromTo}</div>
-                ${c.note ? `<div class="transfer-item__meta" style="color:var(--text)">${c.note}</div>` : ''}
+                <div class="transfer-item__meta">${escapeHtml(c.date.split('-').reverse().join('/'))} • ${escapeHtml(fromTo)}</div>
+                ${c.note ? `<div class="transfer-item__meta" style="color:var(--text)">${escapeHtml(c.note)}</div>` : ''}
               </div>
               <div class="transfer-item__amount">${sign}${formatMoney(c.amount)}</div>
             </div>
@@ -257,76 +283,90 @@
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
-        let amountStr = document.getElementById('input-amount').value;
-        const amount = parseFloat(amountStr.replace(',', '.'));
-        const bkFromId = inputBookFrom.value;
-        const bkToId = inputBookTo.value;
-        
-        if (!amount || amount <= 0) {
-          alert('Por favor, informe um valor válido.');
-          return;
+        if (btnSubmit.disabled) return;
+
+        const originalButtonText = btnSubmit.textContent;
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Salvando...';
+
+        try {
+          const amountString = document.getElementById('input-amount').value;
+          const amount = parseFloat(amountString.replace(',', '.'));
+          const bkFromId = inputBookFrom.value;
+          const bkToId = inputBookTo.value;
+
+          if (!Number.isFinite(amount) || amount <= 0) {
+            alert('Por favor, informe um valor válido.');
+            return;
+          }
+
+          db = await loadDb(); // Reduz o risco de operar sobre um snapshot antigo.
+
+          const idxFrom = db.bookmakers.findIndex(b => b.id === bkFromId);
+          const idxTo = db.bookmakers.findIndex(b => b.id === bkToId);
+          if (idxFrom < 0 || (currentType === 'transfer' && idxTo < 0)) {
+            alert('Selecione casas de aposta válidas.');
+            return;
+          }
+
+          if (currentType === 'deposit') {
+            if (parseFloat(db.mercadoPago.toFixed(2)) < amount) {
+              alert('Saldo do Mercado Pago insuficiente.');
+              return;
+            }
+            db.mercadoPago -= amount;
+            db.mercadoPago = Math.max(0, parseFloat(db.mercadoPago.toFixed(2)));
+            db.bookmakers[idxFrom].balance += amount;
+            db.bookmakers[idxFrom].balance = parseFloat(db.bookmakers[idxFrom].balance.toFixed(2));
+          } else if (currentType === 'withdraw') {
+            if (parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)) < amount) {
+              alert('Saldo na Casa de Apostas insuficiente.');
+              return;
+            }
+            db.bookmakers[idxFrom].balance -= amount;
+            db.bookmakers[idxFrom].balance = Math.max(0, parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)));
+            db.mercadoPago += amount;
+            db.mercadoPago = parseFloat(db.mercadoPago.toFixed(2));
+          } else if (currentType === 'transfer') {
+            if (bkFromId === bkToId) {
+              alert('Origem e destino devem ser diferentes.');
+              return;
+            }
+            if (parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)) < amount) {
+              alert('Saldo na Casa de Origem insuficiente.');
+              return;
+            }
+            db.bookmakers[idxFrom].balance -= amount;
+            db.bookmakers[idxFrom].balance = Math.max(0, parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)));
+            db.bookmakers[idxTo].balance += amount;
+            db.bookmakers[idxTo].balance = parseFloat(db.bookmakers[idxTo].balance.toFixed(2));
+          }
+
+          db.cashflow = db.cashflow || [];
+          db.cashflow.push({
+            id: generateId(),
+            date: document.getElementById('input-date').value,
+            type: currentType,
+            amount,
+            fromBook: bkFromId,
+            toBook: currentType === 'transfer' ? bkToId : null,
+            note: document.getElementById('input-note').value.trim()
+          });
+
+          await saveDb(db);
+          alert('Movimentação salva com sucesso!');
+          form.reset();
+          document.getElementById('input-date').valueAsDate = new Date();
+          updateMpDisplay();
+          updateGlobalUI();
+          populateSelects();
+          renderHistory();
+        } catch (error) {
+          console.error('Erro ao registrar movimentação:', error);
+        } finally {
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = originalButtonText;
         }
-
-        db = await loadDb(); // Reload db to avoid stale state from other tabs
-        
-        const idxFrom = db.bookmakers.findIndex(b => b.id === bkFromId);
-        const idxTo = db.bookmakers.findIndex(b => b.id === bkToId);
-
-        if (currentType === 'deposit') {
-          if (parseFloat(db.mercadoPago.toFixed(2)) < amount) {
-            alert('Saldo do Mercado Pago insuficiente.');
-            return;
-          }
-          db.mercadoPago -= amount;
-          db.mercadoPago = Math.max(0, parseFloat(db.mercadoPago.toFixed(2)));
-          db.bookmakers[idxFrom].balance += amount;
-          db.bookmakers[idxFrom].balance = parseFloat(db.bookmakers[idxFrom].balance.toFixed(2));
-        } else if (currentType === 'withdraw') {
-          if (parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)) < amount) {
-            alert('Saldo na Casa de Apostas insuficiente.');
-            return;
-          }
-          db.bookmakers[idxFrom].balance -= amount;
-          db.bookmakers[idxFrom].balance = Math.max(0, parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)));
-          db.mercadoPago += amount;
-          db.mercadoPago = parseFloat(db.mercadoPago.toFixed(2));
-        } else if (currentType === 'transfer') {
-          if (bkFromId === bkToId) {
-            alert('Origem e destino devem ser diferentes.');
-            return;
-          }
-          if (parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)) < amount) {
-            alert('Saldo na Casa de Origem insuficiente.');
-            return;
-          }
-          db.bookmakers[idxFrom].balance -= amount;
-          db.bookmakers[idxFrom].balance = Math.max(0, parseFloat(db.bookmakers[idxFrom].balance.toFixed(2)));
-          db.bookmakers[idxTo].balance += amount;
-          db.bookmakers[idxTo].balance = parseFloat(db.bookmakers[idxTo].balance.toFixed(2));
-        }
-
-        // Add history record
-        db.cashflow = db.cashflow || [];
-        db.cashflow.push({
-          id: generateId(),
-          date: document.getElementById('input-date').value,
-          type: currentType,
-          amount: amount,
-          fromBook: bkFromId,
-          toBook: currentType === 'transfer' ? bkToId : null,
-          note: document.getElementById('input-note').value
-        });
-
-        await saveDb(db);
-        alert('Movimentação salva com sucesso!');
-        form.reset();
-        document.getElementById('input-date').valueAsDate = new Date();
-        updateMpDisplay();
-        updateGlobalUI();
-        
-        populateSelects();
-        renderHistory();
       });
 
       // Init

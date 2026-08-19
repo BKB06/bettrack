@@ -2,9 +2,12 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Acompanhe seus check-ins diários nas casas de aposta.">
+  <meta name="theme-color" content="#07090f">
   <title>BetTracker - Check-in de Contas</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="styles.css">
   <style>
     /* ─── LOGINS PAGE HEADER ─────────────────────────────────────── */
     .logins-header {
@@ -496,7 +499,7 @@
     <div style="font-size: 48px; margin-bottom: 16px;">🎯</div>
     <h1 style="margin-bottom: 8px;">BetTracker</h1>
     <p style="color: var(--muted); margin-bottom: 24px;">Faça login para acessar suas apostas na nuvem.</p>
-    <button class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
+    <button type="button" class="btn btn--primary" onclick="loginWithGoogle()" style="padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
       Entrar com Google
     </button>
   </div>
@@ -528,7 +531,7 @@
 
       <aside class="desktop-right" id="global-right-panel"></aside>
     </div>
-    <nav class="mobile-nav" id="global-mobile-nav"></nav>
+    <nav class="mobile-nav" id="global-mobile-nav" aria-label="Navegação móvel"></nav>
   </div>
 
   
@@ -537,8 +540,10 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
+  <script src="firebase-client.js"></script>
 
-  <script src="app.js?v=14"></script>
+  <script src="core.js"></script>
+  <script src="app.js"></script>
   <script>
     // ─── STATE ────────────────────────────────────────────────────
     let currentFilter = 'all'; // 'all', 'pending', 'done'
@@ -581,17 +586,7 @@
       window.doLogin = async (id) => {
         const scroll = saveScroll();
         db = await loadDb();
-        // Only set time if not already logged (preserves original login time)
-        if (!db.dailyLogins.logins[id]) {
-          const now = new Date();
-          const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-          const bk = db.bookmakers.find(b => b.id === id);
-          if (bk && bk.lastLoginBeforeUndo === undefined) {
-            bk.lastLoginBeforeUndo = bk.lastLogin;
-          }
-          db.dailyLogins.logins[id] = time;
-          if (bk) bk.lastLogin = now.toISOString();
-
+        if (markLogin(db, id)) {
           await saveDb(db);
         }
         renderLogins();
@@ -630,16 +625,8 @@
         const scroll = saveScroll();
         db = await loadDb();
         const now = new Date();
-        const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         db.bookmakers.forEach(bk => {
-          // Only set if not already logged
-          if (!db.dailyLogins.logins[bk.id]) {
-            if (bk.lastLoginBeforeUndo === undefined) {
-              bk.lastLoginBeforeUndo = bk.lastLogin;
-            }
-            db.dailyLogins.logins[bk.id] = time;
-            bk.lastLogin = now.toISOString();
-          }
+          markLogin(db, bk.id, now);
         });
         await saveDb(db);
         renderLogins();
@@ -647,6 +634,7 @@
       };
 
       window.setFilter = (filter) => {
+        if (!['all', 'pending', 'done'].includes(filter)) return;
         currentFilter = filter;
         renderLogins();
       };
@@ -751,7 +739,7 @@
                 <div class="logins-header-subtitle">Acompanhe e verifique suas casas de apostas diariamente</div>
               </div>
             </div>
-            <div class="logins-header-date">📅 ${dateStr}</div>
+            <div class="logins-header-date">📅 ${escapeHtml(dateStr)}</div>
           </div>
 
           <div class="logins-stats-row">
@@ -796,8 +784,8 @@
               <div class="stat-icon clock">🕐</div>
               <div>
                 <div class="stat-label">Último check-in</div>
-                <div class="stat-value">${lastCheckin}</div>
-                <div class="stat-label">${lastCheckinAgo}</div>
+                <div class="stat-value">${escapeHtml(lastCheckin)}</div>
+                <div class="stat-label">${escapeHtml(lastCheckinAgo)}</div>
               </div>
             </div>
           </div>
@@ -805,16 +793,16 @@
 
         // ─── RENDER TOOLBAR ─────────────────────────────────────
         document.getElementById('logins-toolbar').innerHTML = `
-          <input type="text" id="logins-search-input" class="logins-search" placeholder="🔍 Buscar casa de apostas..." 
+          <input type="search" id="logins-search-input" class="logins-search" aria-label="Buscar casa de apostas" placeholder="🔍 Buscar casa de apostas..."
                  oninput="setSearch(this.value)" value="">
           <div class="logins-filter-tabs">
-            <button class="logins-filter-tab ${currentFilter === 'all' ? 'active' : ''}" onclick="setFilter('all')">
+            <button type="button" class="logins-filter-tab ${currentFilter === 'all' ? 'active' : ''}" aria-pressed="${currentFilter === 'all'}" onclick="setFilter('all')">
               Todos <span class="tab-badge blue">${totalAccounts}</span>
             </button>
-            <button class="logins-filter-tab ${currentFilter === 'pending' ? 'active' : ''}" onclick="setFilter('pending')">
+            <button type="button" class="logins-filter-tab ${currentFilter === 'pending' ? 'active' : ''}" aria-pressed="${currentFilter === 'pending'}" onclick="setFilter('pending')">
               Pendentes <span class="tab-badge yellow">${_pendentes.length}</span>
             </button>
-            <button class="logins-filter-tab ${currentFilter === 'done' ? 'active' : ''}" onclick="setFilter('done')">
+            <button type="button" class="logins-filter-tab ${currentFilter === 'done' ? 'active' : ''}" aria-pressed="${currentFilter === 'done'}" onclick="setFilter('done')">
               Feitos <span class="tab-badge green">${loggedCount}</span>
             </button>
           </div>
@@ -867,30 +855,32 @@
               <div class="kanban-col-title">
                 PENDENTES <span class="kanban-badge">${filteredPendentes.length}</span>
               </div>
-              <button class="btn-checkall" onclick="doAllLogins()">Fazer todos
+              <button type="button" class="btn-checkall" onclick="doAllLogins()">Fazer todos
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
               </button>
             </div>
             <div class="kanban-items-list">
           `;
           filteredPendentes.forEach(bk => {
+            const safeId = escapeJsString(bk.id);
+            const safeName = escapeHtml(bk.name);
+            const safeUrl = escapeHtml(normalizeExternalUrl(bk.url) || getDefaultBookmakerUrl(bk.name));
+            const lastAccess = bk.lastLogin
+              ? `Último acesso: ${new Date(bk.lastLogin).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(bk.lastLogin).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+              : 'Pendente de acesso';
             html += `
               <div class="kanban-item">
                 <div class="kanban-item-left">
                   <div class="kanban-dot"></div>
                   <div class="kanban-item-info">
-                    <a href="${bk.url || getDefaultBookmakerUrl(bk.name)}" target="_blank" class="kanban-item-name" style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 6px;" onclick="doLogin('${bk.id}')">
-                      ${bk.name}
+                    <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="kanban-item-name" style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 6px;" onclick="doLogin('${safeId}')">
+                      ${safeName}
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.4;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                     </a>
-                    <div class="kanban-item-desc">${
-                      bk.lastLogin 
-                        ? `Último acesso: ${new Date(bk.lastLogin).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})} às ${new Date(bk.lastLogin).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}` 
-                        : 'Pendente de acesso'
-                    }</div>
+                    <div class="kanban-item-desc">${escapeHtml(lastAccess)}</div>
                   </div>
                 </div>
-                <button class="btn-checkin" onclick="doLogin('${bk.id}')">Check-in &rarr;</button>
+                <button type="button" class="btn-checkin" onclick="doLogin('${safeId}')">Check-in &rarr;</button>
               </div>
             `;
           });
@@ -928,28 +918,31 @@
               <div class="kanban-col-title">
                 FEITAS HOJE <span class="kanban-badge done">${filteredFeitos.length}</span>
               </div>
-              <button class="btn-viewall-link" onclick="setFilter('done')">Ver todas
+              <button type="button" class="btn-viewall-link" onclick="setFilter('done')">Ver todas
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline></svg>
               </button>
             </div>
             <div class="kanban-items-list">
           `;
           filteredFeitos.forEach(bk => {
+            const safeId = escapeJsString(bk.id);
+            const safeName = escapeHtml(bk.name);
+            const safeUrl = escapeHtml(normalizeExternalUrl(bk.url) || getDefaultBookmakerUrl(bk.name));
             html += `
               <div class="kanban-item">
                 <div class="kanban-item-left">
                   <div class="kanban-dot done"></div>
                   <div class="kanban-item-info">
                     <div style="display:flex; align-items:center; gap:8px;">
-                      <a href="${bk.url || getDefaultBookmakerUrl(bk.name)}" target="_blank" class="kanban-item-name" style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 6px;">
-                        ${bk.name}
+                      <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="kanban-item-name" style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                        ${safeName}
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.4;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                       </a>
-                      <span class="kanban-item-time">${bk.loggedTime}</span>
+                      <span class="kanban-item-time">${escapeHtml(bk.loggedTime)}</span>
                     </div>
                   </div>
                 </div>
-                <button class="btn-undo" onclick="undoLogin('${bk.id}')">Desfazer</button>
+                <button type="button" class="btn-undo" onclick="undoLogin('${safeId}')">Desfazer</button>
               </div>
             `;
           });
